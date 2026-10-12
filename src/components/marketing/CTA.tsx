@@ -6,9 +6,9 @@ import {
   CheckCircle2,
   Send,
   Sparkles,
-  Instagram,
-  ExternalLink,
-  MessageCircle,
+  Mail,
+  Clock,
+  MessageSquare,
 } from 'lucide-react';
 import { brand, foundingOffer } from '@/content';
 
@@ -52,103 +52,66 @@ export default function CTA() {
         </div>
 
         <div className="grid lg:grid-cols-12 gap-10 items-start">
-          {/* Left Column: Founder & CEO Profile Card + Company Socials */}
+          {/* Left Column: Direct Enterprise Contact Desk & Guarantees */}
           <div className="lg:col-span-5 space-y-6">
-            {/* FOUNDER & CEO PROFILE CARD */}
+            {/* ENTERPRISE CONTACT DESK CARD */}
             <div className="p-7 rounded-3xl bg-white border border-slate-200 shadow-sm relative overflow-hidden group hover:border-slate-300 transition-all">
               <div className="flex items-center justify-between mb-5">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-primary-700 bg-primary-50 px-2.5 py-1 rounded-full border border-primary-100">
-                  Leadership &amp; Founder Access
+                  Enterprise Contact &amp; Onboarding
                 </span>
                 <span className="flex items-center gap-1.5 text-xs text-slate-500">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Accepting Cohort DMs
+                  Engineering Desk Online
                 </span>
               </div>
 
-              {/* Founder Image & Info Layout */}
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-                {/* Clickable Profile Picture */}
-                <a
-                  href={brand.founder.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative group/pic shrink-0 block"
-                  title="Click to open Rishita Tripathi's Instagram"
-                >
-                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden ring-2 ring-primary-100 group-hover/pic:ring-primary-200 shadow-md transition-all duration-300 group-hover/pic:scale-[1.03]">
-                    <img
-                      src={brand.founder.photo}
-                      alt={`${brand.founder.name} - ${brand.founder.role}`}
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                  {/* Instagram Badge Overlay */}
-                  <div className="absolute -bottom-1 -right-1 bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white p-2 rounded-xl shadow-lg border-2 border-white group-hover/pic:scale-110 transition-transform">
-                    <Instagram className="w-4 h-4" />
-                  </div>
-                </a>
-
-                {/* Info Text Below / Beside Pic */}
-                <div className="flex-1 text-center sm:text-left space-y-1.5">
+              <div className="space-y-4">
+                <div>
                   <h3 className="text-xl font-bold text-slate-900 tracking-tight">
-                    {brand.founder.name}
+                    Direct RevOps Architecture Desk
                   </h3>
-                  <div className="text-xs font-bold uppercase tracking-wider text-primary-700">
-                    {brand.founder.role}
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed pt-1">
-                    {brand.founder.bio}
+                  <p className="text-xs text-slate-600 leading-relaxed pt-1.5">
+                    Connect directly with our engineering team for enterprise data staging, custom deduplication survivorship rules, and dedicated charter provisioning.
                   </p>
-                  <div className="pt-2">
-                    <a
-                      href={brand.founder.instagram}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition"
-                    >
-                      <Instagram className="w-3.5 h-3.5" />
-                      <span>{brand.founder.instagramHandle}</span>
-                      <ExternalLink className="w-3 h-3 text-slate-400" />
-                    </a>
+                </div>
+
+                <div className="pt-2 space-y-2.5">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Priority Email Desk
+                      </div>
+                      <a href="mailto:contact@veracity.io" className="text-xs font-bold text-slate-900 hover:text-primary-600 transition">
+                        contact@veracity.io
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Response SLA
+                      </div>
+                      <div className="text-xs font-bold text-slate-900">
+                        Under 2 Hours for Founding &amp; Enterprise Accounts
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Direct access subtext */}
               <div className="mt-5 pt-4 border-t border-slate-100 text-[11px] text-slate-500 flex items-center gap-2">
-                <MessageCircle className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                <span>Click the photo to connect with Rishita directly regarding founding access or custom volume.</span>
+                <MessageSquare className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                <span>Fill out the form or reach out directly for priority provisioning.</span>
               </div>
-            </div>
-
-            {/* OFFICIAL VERACITY COMPANY INSTAGRAM */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between gap-4 hover:border-slate-300 transition">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-md">
-                  <Instagram className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Official Veracity Channel
-                  </div>
-                  <div className="text-sm font-bold text-slate-900">
-                    {brand.instagramHandle}
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Live RevOps benchmarks, tear-downs &amp; engineering releases.
-                  </div>
-                </div>
-              </div>
-              <a
-                href={brand.instagram}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition"
-                title="Follow Veracity on Instagram"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
             </div>
 
             {/* Bullet Proof Key Guarantees */}
@@ -177,7 +140,7 @@ export default function CTA() {
                   </div>
                   <h3 className="text-2xl font-bold text-slate-900">Founding License Reserved!</h3>
                   <p className="text-sm text-slate-600 max-w-sm mx-auto leading-relaxed">
-                    Thank you, <strong className="text-slate-900">{formData.name}</strong>. Rishita Tripathi and the Veracity engineering team will connect with you within 2 hours to provision your <span className="font-semibold text-primary-700">Outbound Sentry / Founding Charter</span> workspace.
+                    Thank you, <strong className="text-slate-900">{formData.name}</strong>. The Veracity engineering team will connect with you within 2 hours to provision your <span className="font-semibold text-primary-700">Outbound Sentry / Founding Charter</span> workspace.
                   </p>
                   <button
                     onClick={() => setSubmitted(false)}

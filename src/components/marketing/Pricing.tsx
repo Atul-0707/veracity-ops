@@ -372,7 +372,7 @@ export default function Pricing() {
               <strong>Annual Founding Members Notice:</strong> The $450 Enterprise MDM Architecture Setup is <strong>100% Free</strong> with your charter.
             </span>
             <a href="#contact" className="text-primary-600 font-bold hover:underline">
-              Speak with Founder Rishita Tripathi &rarr;
+              Speak with RevOps Leadership &rarr;
             </a>
           </div>
         </div>
@@ -404,14 +404,11 @@ export default function Pricing() {
                   <ArrowRight className="w-4 h-4" />
                 </a>
                 <a
-                  href={brand.founder.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#contact"
                   className="inline-flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-700 hover:text-slate-900 hover:border-slate-300 text-xs font-bold rounded-xl transition shadow-2xs"
                 >
                   <MessageCircle className="w-4 h-4 text-primary-600" />
-                  DM CEO Rishita Tripathi
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                  Contact Leadership
                 </a>
               </div>
             </div>

@@ -260,7 +260,7 @@ export function MagicalImport({ workspace, records, onRefresh, onNavigateToClean
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => alert("Connecting with Rishita Tripathi (Founder & CEO) to expand your monthly volume bracket or allocate custom batch capacity.")}
+                onClick={() => alert("Connecting with Veracity Support & Engineering to expand your monthly volume bracket or allocate custom batch capacity.")}
                 className="px-3.5 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-lg text-xs shadow-xs transition-all"
               >
                 Expand Row Quota ($10 / 2.5k)
