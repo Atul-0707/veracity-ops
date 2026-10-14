@@ -34,7 +34,7 @@ export const DEMO_WORKSPACE: Workspace = {
   logo_url: null,
   crm_target: 'Salesforce / HubSpot',
   status: 'active',
-  monthly_fee: 65,
+  monthly_fee: 150,
   quota_limit: 50000,
   quota_used: 0,
   valid_until: new Date(Date.now() + 86400000 * 365).toISOString(),

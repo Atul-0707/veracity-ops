@@ -78,7 +78,7 @@ export default function FeatureTabs() {
               href="#pricing"
               className="inline-flex items-center gap-2 self-start lg:self-center px-4.5 py-2.5 bg-slate-900 text-white hover:bg-slate-800 text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm"
             >
-              Get Started ($65/mo)
+              Deploy Engine ($150/mo)
               <ArrowRight className="w-4 h-4" />
             </a>
           </div>

@@ -97,7 +97,7 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   {
-    label: 'Services',
+    label: 'Core Engine',
     href: '#services',
     children: [
       { label: 'Dedup & Merge', href: '#services', description: 'Fellegi-Sunter entity resolution with 1-click undo', icon: Merge },
@@ -106,6 +106,7 @@ export const navItems: NavItem[] = [
       { label: 'Enrich & Segment', href: '#services', description: 'Waterfall arbitrage & dynamic ICP cohort routing', icon: Search },
     ],
   },
+  { label: 'For Agencies & GTM', href: '#agency' },
   { label: 'Pricing', href: '#pricing' },
   { label: 'About Us', href: '#about' },
   { label: 'Contact Us', href: '#contact' },
