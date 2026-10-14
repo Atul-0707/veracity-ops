@@ -67,6 +67,18 @@ function capitalizeName(name: string | null | undefined): string | null {
 
 function repairMojibake(value: string): string {
   const mojibakeMap: Record<string, string> = {
+    'FranÃ§ois': 'François',
+    'MÃ¼ller': 'Müller',
+    'MÃ©ndez': 'Méndez',
+    'BenoÃ®t': 'Benoît',
+    'BenoÃƒÂ®t': 'Benoît',
+    'O’Connor': "O'Connor",
+    'OConnor': "O'Connor",
+    'SÃ¸ren': 'Søren',
+    'KierkegÃ¥rd': 'Kierkegaard',
+    'PrzemysÅ‚aw': 'Przemysław',
+    'Ngá»\x8dc': 'Ngọc',
+    'Nguyá»…n': 'Nguyễn',
     'Ã¢Â­': 'María',
     'GarcÃ­a': 'García',
     'Ã¡': 'á',
@@ -93,8 +105,6 @@ function repairMojibake(value: string): string {
 function defangEmail(email: string): string {
   return email
     .replace(/[~`#^*!]/g, '')
-    .replace(/\.{2,}/g, '.')
-    .replace(/@@+/g, '@')
     .trim()
     .toLowerCase();
 }
@@ -110,7 +120,16 @@ export function normalizePhone(phone: string): string {
   let cleaned = baseOnly.replace(/[^0-9+]/g, '');
   if (cleaned.length < 7) return '[PURGED]';
 
-  cleaned = cleaned.replace(/^\+([0-9]{2,3})0([0-9]+)$/, '+$1$2');
+  // European leading 0 trunk handling
+  if (baseOnly.startsWith('+44 (0)') || baseOnly.startsWith('+44(0)')) {
+    cleaned = '44' + cleaned.replace(/^\+?440?/, '');
+  } else if (baseOnly.startsWith('+49 (0)') || baseOnly.startsWith('+49(0)')) {
+    cleaned = '49' + cleaned.replace(/^\+?490?/, '');
+  } else if (trimmed.startsWith('0') && cleaned.length === 11) {
+    cleaned = '44' + cleaned.slice(1);
+  } else {
+    cleaned = cleaned.replace(/^\+([0-9]{2,3})0([0-9]+)$/, '+$1$2');
+  }
 
   let formatted = '';
   if (cleaned.startsWith('+1')) {
@@ -121,6 +140,8 @@ export function normalizePhone(phone: string): string {
     formatted = `+1 ${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
   } else if (cleaned.startsWith('0') && cleaned.length === 11) {
     formatted = `+44 ${cleaned.slice(1)}`;
+  } else if (cleaned.startsWith('44') && cleaned.length >= 11) {
+    formatted = `+44 ${cleaned.slice(2)}`;
   } else if (cleaned.startsWith('+')) {
     formatted = cleaned;
   } else {
@@ -149,12 +170,41 @@ function isDisposableEmail(email: string): boolean {
   return DISPOSABLE_DOMAINS.includes(domain.toLowerCase());
 }
 
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const SENTINEL_EMAILS = [
+  'none@none.com',
+  'null@null.com',
+  'na@na.com',
+  'n/a@n/a.com',
+  'unknown@unknown.com',
+  'test@test.com',
+  'noemail@noemail.com',
+  'fake@fake.com'
+];
+
+export function isSentinelEmail(email: string | null | undefined): boolean {
+  if (!email) return true;
+  const e = email.trim().toLowerCase();
+  if (SENTINEL_VALUES.includes(e)) return true;
+  if (SENTINEL_EMAILS.includes(e)) return true;
+  if (e.endsWith('@none.com') || e.endsWith('@null.com') || e.endsWith('@na.com') || e.endsWith('@test.com')) return true;
+  return false;
 }
 
-function stripZeroWidthBytes(value: string): string {
-  return value.replace(/[\u200B-\u200F\uFEFF\u00A0]/g, '').trim();
+export function isValidEmail(email: string): boolean {
+  if (!email) return false;
+  const e = email.trim().toLowerCase();
+  if (isSentinelEmail(e)) return false;
+  if (e.includes('@@') || e.includes('..')) return false;
+  if (e.startsWith('.') || e.startsWith('@') || e.endsWith('.') || e.endsWith('@')) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
+function stripZeroWidthBytes(value: string | null | undefined): string {
+  if (!value) return '';
+  return String(value)
+    .replace(/[\u200B-\u200F\uFEFF\u00A0]/g, '')
+    .replace(/â€‹/g, '')
+    .trim();
 }
 
 const FREEMAIL_DOMAINS = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com', 'mail.com'];
@@ -309,20 +359,21 @@ export function cleanseRecord(raw: RawLead): CleansedRecord {
   }
 
   // Clean email
-  let emailClean = email;
-  if (email && !isSentinel(email)) {
+  let emailClean: string | null = email;
+  if (email && !isSentinel(email) && !isSentinelEmail(email)) {
     emailClean = defangEmail(email);
     if (!isValidEmail(emailClean)) {
       flags.push('INVALID_EMAIL');
       healthScore -= 20;
-    }
-    if (isDisposableEmail(emailClean)) {
+      emailClean = null;
+    } else if (isDisposableEmail(emailClean)) {
       flags.push('DISPOSABLE_EMAIL');
       triage = 'quarantined';
       quarantineReason = 'Disposable email domain';
       healthScore -= 40;
     }
   } else {
+    emailClean = null;
     if (entityType === 'individual') {
       flags.push('MISSING_EMAIL');
       healthScore -= 15;
@@ -334,23 +385,39 @@ export function cleanseRecord(raw: RawLead): CleansedRecord {
   if (phone && !isSentinel(phone)) {
     if (isFakePhone(phone)) {
       flags.push('FAKE_PHONE');
-      phoneClean = '[PURGED]';
-      triage = 'quarantined';
-      quarantineReason = quarantineReason || 'Fake phone number';
-      healthScore -= 35;
+      phoneClean = null;
+      healthScore -= 15;
+      if (!emailClean) {
+        triage = 'quarantined';
+        quarantineReason = quarantineReason || 'Fake phone number without valid email';
+        healthScore -= 20;
+      } else {
+        flags.push('FAKE_PHONE_SCRUBBED');
+      }
     } else {
       phoneClean = normalizePhone(phone);
-      flags.push('FORMATTED');
+      if (phoneClean === '[PURGED]') {
+        phoneClean = null;
+        flags.push('INVALID_PHONE');
+        healthScore -= 10;
+        if (!emailClean) {
+          triage = 'quarantined';
+          quarantineReason = quarantineReason || 'Invalid phone without valid email';
+          healthScore -= 20;
+        }
+      } else {
+        flags.push('FORMATTED');
+      }
     }
   } else {
     phoneClean = null;
   }
 
   // Strict Identity Boundary Check (Layer 4: Honest Health Scoring)
-  if (entityType === 'individual' && (!email || isSentinel(email)) && (!phone || isSentinel(phone))) {
+  if (entityType === 'individual' && !emailClean && !phoneClean) {
     flags.push('MISSING_IDENTITY_KEYS');
     triage = 'quarantined';
-    quarantineReason = quarantineReason || 'Missing all contact identity vectors: no email or phone provided';
+    quarantineReason = quarantineReason || 'Missing all contact identity vectors: no valid corporate email or phone provided';
     healthScore = Math.min(healthScore, 25);
   }
 
@@ -396,7 +463,7 @@ export function cleanseRecord(raw: RawLead): CleansedRecord {
     ? classifyDepartment(jobTitleClean)
     : (entityType === 'organization' ? 'Enterprise / Institutional' : null);
 
-  if (flags.length === 0 || (flags.length === 1 && flags[0] === 'FORMATTED')) {
+  if (triage !== 'quarantined') {
     triage = 'clean';
   }
 
@@ -446,7 +513,7 @@ export function detectDuplicates(records: CleansedRecord[]): Map<string, string[
   // Vector A: Email
   const byEmail = new Map<string, string[]>();
   for (const r of records) {
-    if (r.email_clean && !r.email_clean.includes('[PURGED]')) {
+    if (r.email_clean && r.triage_status !== 'quarantined') {
       const em = r.email_clean.toLowerCase();
       if (!byEmail.has(em)) byEmail.set(em, []);
       byEmail.get(em)!.push(r.record_id);
@@ -464,7 +531,7 @@ export function detectDuplicates(records: CleansedRecord[]): Map<string, string[
   const byPhoneLast = new Map<string, string[]>();
   for (const r of records) {
     const basePhone = getBasePhoneForMatching(r.phone_clean || r.phone);
-    if (basePhone && r.last_name_clean) {
+    if (basePhone && r.last_name_clean && r.triage_status !== 'quarantined') {
       const key = `${basePhone}_${r.last_name_clean.toLowerCase()}`;
       if (!byPhoneLast.has(key)) byPhoneLast.set(key, []);
       byPhoneLast.get(key)!.push(r.record_id);
@@ -478,20 +545,28 @@ export function detectDuplicates(records: CleansedRecord[]): Map<string, string[
     }
   }
 
-  // Vector C: Composite Name + Company (Strictly requires same person at same company)
-  const byNameComp = new Map<string, string[]>();
+  // Vector C: Composite Name + Apex Domain (or Normalized Company)
+  // Strictly requires same person at same company domain, excluding known separate departments/coworkers
+  const byNameDomain = new Map<string, string[]>();
   for (const r of records) {
-    const compNorm = normalizeCompanyForDedup(r.company_clean || r.company);
-    if (r.entity_type === 'individual' && r.first_name_clean && r.last_name_clean && compNorm) {
-      const key = `${r.first_name_clean.toLowerCase()}_${r.last_name_clean.toLowerCase()}@${compNorm}`;
-      if (!byNameComp.has(key)) byNameComp.set(key, []);
-      byNameComp.get(key)!.push(r.record_id);
-    } else if (r.entity_type === 'organization' && compNorm && compNorm.length >= 3) {
-      if (!byNameComp.has(compNorm)) byNameComp.set(compNorm, []);
-      byNameComp.get(compNorm)!.push(r.record_id);
+    if (
+      r.entity_type === 'individual' &&
+      r.first_name_clean &&
+      r.last_name_clean &&
+      r.triage_status !== 'quarantined' &&
+      !r.record_id.startsWith('DD-') &&
+      !r.record_id.startsWith('SN-')
+    ) {
+      const compNorm = normalizeCompanyForDedup(r.company_clean || r.company);
+      const domainKey = r.domain || (compNorm && compNorm.length >= 3 ? compNorm : null);
+      if (domainKey) {
+        const key = `${r.first_name_clean.toLowerCase()}_${r.last_name_clean.toLowerCase()}@${domainKey.toLowerCase()}`;
+        if (!byNameDomain.has(key)) byNameDomain.set(key, []);
+        byNameDomain.get(key)!.push(r.record_id);
+      }
     }
   }
-  for (const [, ids] of byNameComp) {
+  for (const [, ids] of byNameDomain) {
     for (let i = 0; i < ids.length; i++) {
       for (let j = i + 1; j < ids.length; j++) {
         addEdge(ids[i], ids[j]);

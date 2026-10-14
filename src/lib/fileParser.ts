@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { DataRecord } from './types';
-import { cleanseRecord, detectDuplicates, isPureInteger, type RawLead } from './engine';
+import { cleanseRecord, detectDuplicates, isPureInteger, type RawLead, type CleansedRecord } from './engine';
 
 export interface DomainProfile {
   profile: 'CRM_LEADS' | 'FINANCIAL_PORTFOLIO' | 'GENERIC';
@@ -88,12 +88,22 @@ function mapRowToRawLead(row: Record<string, any>, idx: number): RawLead {
   }
 
   const findVal = (patterns: string[], excludePatterns: string[] = []): string => {
+    // Pass 1: exact match
+    for (const [k, v] of Object.entries(normalizedRow)) {
+      if (
+        patterns.some((p) => k === p) &&
+        !excludePatterns.some((ep) => k.includes(ep))
+      ) {
+        if (v) return v;
+      }
+    }
+    // Pass 2: substring match
     for (const [k, v] of Object.entries(normalizedRow)) {
       if (
         patterns.some((p) => k.includes(p)) &&
         !excludePatterns.some((ep) => k.includes(ep))
       ) {
-        return v;
+        if (v) return v;
       }
     }
     return '';
@@ -112,7 +122,10 @@ function mapRowToRawLead(row: Record<string, any>, idx: number): RawLead {
 
   // 3. Human Name Split: Exclude borrower/company/business/lender headers from name mapping
   let firstName = findVal(['firstname', 'fname', 'first'], ['borrower', 'company', 'business', 'lender']);
-  let lastName = findVal(['lastname', 'lname', 'last'], ['borrower', 'company', 'business', 'lender']);
+  let lastName = findVal(
+    ['lastname', 'lname', 'last'],
+    ['borrower', 'company', 'business', 'lender', 'fullname', 'repname', 'contactname', 'personname']
+  );
 
   // If first name has a trailing comma (e.g. "Vacca," or "Chatterjee,"), it was inverted in source export
   if (firstName && firstName.endsWith(',')) {
@@ -142,6 +155,14 @@ function mapRowToRawLead(row: Record<string, any>, idx: number): RawLead {
         firstName = parts[0];
         lastName = parts.slice(1).join(' ');
       }
+    }
+  }
+
+  // Prevent duplicated first name in last name (e.g. "Miller" vs "David Miller")
+  if (firstName && lastName) {
+    const lParts = lastName.split(/\s+/);
+    if (lParts.length > 1 && lParts[0].toLowerCase() === firstName.toLowerCase()) {
+      lastName = lParts.slice(1).join(' ');
     }
   }
 
@@ -273,22 +294,87 @@ export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult>
     const matchType = isCompany ? 'entity' : (isPhone ? 'phone_lastname' : 'email');
     const score = isCompany ? 97.5 : (isPhone ? 95.8 : 99.4);
 
-    ids.forEach((id, idx) => {
-      const r = cleansed.find((x) => x.record_id === id);
-      if (r) {
+    const clusterRecs = ids.map((id) => cleansed.find((x) => x.record_id === id)).filter(Boolean) as CleansedRecord[];
+    if (clusterRecs.length === 0) continue;
+
+    // Identify Golden Master Record: prioritize legacy CRM (SF- or REC-), or earliest ingested
+    const master = clusterRecs.find((r) => r.record_id.startsWith('SF-') || r.record_id.startsWith('REC-')) || clusterRecs[0];
+
+    // Field-level Survivorship across cluster:
+    // 1. Phone survivorship: inherit valid normalized E.164 phone from modern member if master phone is missing/purged
+    if (!master.phone_clean || master.phone_clean.includes('[PURGED]')) {
+      const donorPhone = clusterRecs.find((r) => r.phone_clean && !r.phone_clean.includes('[PURGED]'));
+      if (donorPhone) {
+        master.phone_clean = donorPhone.phone_clean;
+        master.phone = donorPhone.phone || donorPhone.phone_clean;
+      }
+    }
+
+    // 2. Job Title survivorship: inherit promoted/senior modern job title from 2026 sources if present
+    const modernTitleDonor = clusterRecs.find((r) => {
+      const t = (r.job_title_clean || r.job_title || '').toLowerCase();
+      return (r.record_id.startsWith('AP-') || r.record_id.startsWith('EV-')) &&
+        (t.includes('vp') || t.includes('ceo') || t.includes('chief') || t.includes('head') || t.includes('director') || t.includes('founder'));
+    });
+    if (modernTitleDonor && modernTitleDonor.job_title_clean) {
+      master.job_title_clean = modernTitleDonor.job_title_clean;
+      master.job_title = modernTitleDonor.job_title || modernTitleDonor.job_title_clean;
+    }
+
+    // 3. Email survivorship: inherit valid email from any member if master's email is missing
+    if (!master.email_clean) {
+      const donorEmail = clusterRecs.find((r) => r.email_clean);
+      if (donorEmail) {
+        master.email_clean = donorEmail.email_clean;
+        master.email = donorEmail.email || donorEmail.email_clean;
+      }
+    }
+
+    // 4. Deal ARR survivorship: pick max ARR across cluster
+    let maxArr = 0;
+    for (const r of clusterRecs) {
+      const val = Number(r.deal_arr) || 0;
+      if (val > maxArr) maxArr = val;
+    }
+    if (maxArr > 0) {
+      master.deal_arr = maxArr;
+    }
+
+    // 5. CRM Notes survivorship: coalesce critical deal notes & GDPR opt-outs
+    const noteParts: string[] = [];
+    clusterRecs.forEach((r) => {
+      if (r.notes && !noteParts.includes(r.notes)) {
+        noteParts.push(r.notes);
+      }
+    });
+    if (noteParts.length > 0) {
+      master.notes = noteParts.join(' | ');
+    }
+
+    // Mark master record
+    master.is_duplicate = true;
+    master.duplicate_cluster_id = clusterKey;
+    master.duplicate_type = matchType;
+    master.match_score = score;
+    (master as any).is_golden_master = true;
+    (master as any).is_subordinate = false;
+    master.triage_status = 'clean';
+    if (!master.flag_tags.includes('DUPLICATE')) master.flag_tags.push('DUPLICATE');
+    if (!master.flag_tags.includes('GOLDEN_RECORD_SYNTHESIZED')) master.flag_tags.push('GOLDEN_RECORD_SYNTHESIZED');
+
+    // Mark subordinate duplicates
+    clusterRecs.forEach((r) => {
+      if (r.record_id !== master.record_id) {
         r.is_duplicate = true;
         r.duplicate_cluster_id = clusterKey;
         r.duplicate_type = matchType;
         r.match_score = score;
-        if (!r.flag_tags.includes('DUPLICATE')) {
-          r.flag_tags.push('DUPLICATE');
-        }
-        // Subordinate duplicate is quarantined for Golden Record review
-        if (idx > 0) {
-          r.triage_status = 'quarantined';
-          r.quarantine_reason = `Duplicate ${matchType === 'entity' ? 'entity' : 'contact'} conflict: matches record ${ids[0]}`;
-          r.health_score = Math.max(25, r.health_score - 30);
-        }
+        (r as any).is_golden_master = false;
+        (r as any).is_subordinate = true;
+        r.triage_status = 'quarantined'; // Flagged for duplicate review
+        r.quarantine_reason = `Duplicate ${matchType === 'entity' ? 'entity' : 'contact'} conflict: coalesced into Golden Record ${master.record_id}`;
+        if (!r.flag_tags.includes('DUPLICATE')) r.flag_tags.push('DUPLICATE');
+        if (!r.flag_tags.includes('DUPLICATE_SUBORDINATE_RETIRED')) r.flag_tags.push('DUPLICATE_SUBORDINATE_RETIRED');
       }
     });
   }
@@ -323,6 +409,9 @@ export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult>
     health_score: r.health_score,
     is_duplicate: r.is_duplicate,
     duplicate_cluster_id: r.duplicate_cluster_id || null,
+    duplicate_type: r.duplicate_type || null,
+    is_golden_master: (r as any).is_golden_master || false,
+    is_subordinate: (r as any).is_subordinate || false,
     match_score: r.match_score || null,
     dataset_domain: domainProfile.profile,
     notes: r.notes || null,

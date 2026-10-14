@@ -46,16 +46,23 @@ export function InstantScrub({
 
   // Computed metrics
   const cleanRecords = useMemo(
-    () => records.filter((r) => r.triage_status === 'clean' || r.triage_status === 'verified'),
+    () => records.filter((r) => (r.triage_status === 'clean' || r.triage_status === 'verified') && !r.is_subordinate),
     [records]
   );
   const duplicateRecords = useMemo(() => records.filter((r) => r.is_duplicate), [records]);
   const quarantinedRecords = useMemo(
-    () => records.filter((r) => r.triage_status === 'quarantined'),
+    () => records.filter((r) => r.triage_status === 'quarantined' && !r.is_subordinate),
     [records]
   );
   const phoneNormalizedCount = useMemo(
-    () => records.filter((r) => r.phone && (r.phone.startsWith('+1') || r.phone.startsWith('+44') || r.phone.startsWith('+91'))).length,
+    () =>
+      records.filter(
+        (r) =>
+          (r.phone_clean || r.phone) &&
+          ((r.phone_clean || r.phone)!.startsWith('+1') ||
+            (r.phone_clean || r.phone)!.startsWith('+44') ||
+            (r.phone_clean || r.phone)!.startsWith('+91'))
+      ).length,
     [records]
   );
 
@@ -63,20 +70,20 @@ export function InstantScrub({
   const displayedRecords = useMemo(() => {
     return records
       .filter((r) => {
-        if (filter === 'clean') return r.triage_status === 'clean' || r.triage_status === 'verified';
+        if (filter === 'clean') return (r.triage_status === 'clean' || r.triage_status === 'verified') && !r.is_subordinate;
         if (filter === 'duplicates') return r.is_duplicate;
-        if (filter === 'quarantined') return r.triage_status === 'quarantined';
+        if (filter === 'quarantined') return r.triage_status === 'quarantined' && !r.is_subordinate;
         return true;
       })
       .filter((r) => {
         if (!search) return true;
         const q = search.toLowerCase();
         return (
-          (r.first_name || '').toLowerCase().includes(q) ||
-          (r.last_name || '').toLowerCase().includes(q) ||
-          (r.email || '').toLowerCase().includes(q) ||
-          (r.company || '').toLowerCase().includes(q) ||
-          (r.phone || '').toLowerCase().includes(q)
+          (r.first_name_clean || r.first_name || '').toLowerCase().includes(q) ||
+          (r.last_name_clean || r.last_name || '').toLowerCase().includes(q) ||
+          (r.email_clean || r.email || '').toLowerCase().includes(q) ||
+          (r.company_clean || r.company || '').toLowerCase().includes(q) ||
+          (r.phone_clean || r.phone || '').toLowerCase().includes(q)
         );
       });
   }, [records, filter, search]);
@@ -356,40 +363,46 @@ export function InstantScrub({
                   >
                     <td className="py-3 px-4">
                       <div className="font-bold text-slate-900">
-                        {r.first_name} {r.last_name}
+                        {r.first_name_clean || r.first_name} {r.last_name_clean || r.last_name}
                       </div>
                       <div className="text-[11px] text-slate-500">{r.job_title_clean || r.job_title || 'Executive'}</div>
                     </td>
                     <td className="py-3 px-4 font-mono text-[11px] text-slate-700">
-                      {r.email}
+                      {r.email_clean || r.email || '—'}
                     </td>
                     <td className="py-3 px-4 font-mono text-[11px]">
-                      {r.phone ? (
+                      {r.phone_clean || r.phone ? (
                         <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 font-semibold">
-                          {r.phone}
+                          {r.phone_clean || r.phone}
                         </span>
                       ) : (
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
                     <td className="py-3 px-4 font-medium text-slate-800">
-                      {r.company}
+                      {r.company_clean || r.company}
                       {r.domain && <span className="block text-[10px] text-slate-400 font-mono">{r.domain}</span>}
                     </td>
                     <td className="py-3 px-4">
-                      {isClean && (
+                      {r.is_golden_master && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          <Sparkles className="w-3 h-3" />
+                          GOLDEN MASTER
+                        </span>
+                      )}
+                      {!r.is_golden_master && !r.is_subordinate && isClean && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                           <CheckCircle2 className="w-3 h-3" />
                           CLEAN
                         </span>
                       )}
-                      {isDedupe && (
+                      {r.is_subordinate && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                           <Users className="w-3 h-3" />
                           MERGED DUP
                         </span>
                       )}
-                      {isQuarantine && (
+                      {isQuarantine && !r.is_subordinate && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                           <AlertTriangle className="w-3 h-3" />
                           QUARANTINE
@@ -397,8 +410,10 @@ export function InstantScrub({
                       )}
                     </td>
                     <td className="py-3 px-4 text-[11px] text-slate-600">
-                      {isDedupe
-                        ? 'Merged into Golden Record (Attribution preserved)'
+                      {r.is_golden_master
+                        ? 'Golden Record Synthesized (Cross-Source Coalesced)'
+                        : r.is_subordinate
+                        ? r.quarantine_reason || 'Merged into Golden Record (Attribution preserved)'
                         : isQuarantine
                         ? r.quarantine_reason || 'Flagged for syntax review'
                         : 'Phone E.164 verified • Syntax validated'}

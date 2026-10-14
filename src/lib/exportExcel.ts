@@ -10,8 +10,8 @@ export function downloadCleanedMasterExcel(
   workspaceName = 'Veracity Public Sandbox',
   filenamePrefix = 'Client_CRM_Data_Intelligence_Master'
 ): void {
-  const cleanRecords = records.filter((r) => r.triage_status === 'clean' || r.triage_status === 'verified');
-  const quarantineRecords = records.filter((r) => r.triage_status === 'quarantined');
+  const cleanRecords = records.filter((r) => (r.triage_status === 'clean' || r.triage_status === 'verified') && !r.is_subordinate);
+  const quarantineRecords = records.filter((r) => r.triage_status === 'quarantined' && !r.is_subordinate);
   const dupsCount = records.filter((r) => r.is_duplicate).length;
 
   const healthScore = calculateHealthScore(records as any);
@@ -50,23 +50,34 @@ export function downloadCleanedMasterExcel(
   // ─────────────────────────────────────────────────────────────────────────
   // TAB 01: APPROVED CLEAN
   // ─────────────────────────────────────────────────────────────────────────
-  const cleanRows = cleanRecords.map((r) => ({
-    Record_ID: r.record_id,
-    First_Name: r.first_name_clean || r.first_name || '',
-    Last_Name: r.last_name_clean || r.last_name || '',
-    Email: r.email_clean || r.email || '',
-    Phone: r.phone_clean || r.phone || '',
-    Company: r.company_clean || r.company || '',
-    Job_Title: r.job_title_clean || r.job_title || '',
-    Corporate_Domain: r.domain || '',
-    Seniority_Tier: r.seniority_tier || '',
-    Department_Group: r.department || '',
-    Auto_Inferred_Company: r.inferred_company ? 'YES (from email domain)' : 'NO',
-    Country: r.country || '',
-    Region: r.region || '',
-    Health_Score: `${r.health_score}%`,
-    Triage_Status: 'ACTIVE_APPROVED',
-  }));
+  const cleanRows = cleanRecords.map((r) => {
+    const fn = r.first_name_clean || r.first_name || '';
+    const ln = r.last_name_clean || r.last_name || '';
+    const rawFull = `${fn} ${ln}`.trim() || r.company_clean || r.company || '';
+    const tokens = rawFull.split(/\s+/).filter(Boolean);
+    const dedupedFull = tokens.filter((t, i) => i === 0 || t.toLowerCase() !== tokens[i - 1].toLowerCase()).join(' ');
+
+    return {
+      Record_ID: r.record_id,
+      First_Name: fn,
+      Last_Name: ln,
+      Full_Name: dedupedFull,
+      Email: r.email_clean || r.email || '',
+      Phone: r.phone_clean || r.phone || '',
+      Company: r.company_clean || r.company || '',
+      Job_Title: r.job_title_clean || r.job_title || '',
+      Corporate_Domain: r.domain || '',
+      Deal_ARR_USD: r.deal_arr != null ? r.deal_arr : '',
+      CRM_Notes: r.notes || '',
+      Seniority_Tier: r.seniority_tier || '',
+      Department_Group: r.department || '',
+      Auto_Inferred_Company: r.inferred_company ? 'YES (from email domain)' : 'NO',
+      Country: r.country || '',
+      Region: r.region || '',
+      Health_Score: `${r.health_score}%`,
+      Triage_Status: 'ACTIVE_APPROVED',
+    };
+  });
   const ws1 = cleanRows.length > 0 ? XLSX.utils.json_to_sheet(cleanRows) : XLSX.utils.aoa_to_sheet([['No clean records found']]);
   XLSX.utils.book_append_sheet(wb, ws1, '01_Approved_Clean');
 
@@ -100,23 +111,34 @@ export function downloadCleanedCSV(
   filename = 'Clean_Leads_CRM_Ready.csv'
 ): void {
   const cleanRows = records
-    .filter((r) => r.triage_status === 'clean' || r.triage_status === 'verified')
-    .map((r) => ({
-      Record_ID: r.record_id,
-      First_Name: r.first_name || '',
-      Last_Name: r.last_name || '',
-      Full_Name: `${r.first_name || ''} ${r.last_name || ''}`.trim() || r.company || '',
-      Email: r.email || '',
-      Phone_E164: r.phone || '',
-      Company: r.company || '',
-      Job_Title: r.job_title_clean || r.job_title || '',
-      Domain: r.domain || '',
-      Clean_Status: 'VERIFIED_CLEAN',
-    }));
+    .filter((r) => (r.triage_status === 'clean' || r.triage_status === 'verified') && !r.is_subordinate)
+    .map((r) => {
+      const fn = r.first_name_clean || r.first_name || '';
+      const ln = r.last_name_clean || r.last_name || '';
+      const rawFull = `${fn} ${ln}`.trim() || r.company_clean || r.company || '';
+      const tokens = rawFull.split(/\s+/).filter(Boolean);
+      const dedupedFull = tokens.filter((t, i) => i === 0 || t.toLowerCase() !== tokens[i - 1].toLowerCase()).join(' ');
+
+      return {
+        Record_ID: r.record_id,
+        First_Name: fn,
+        Last_Name: ln,
+        Full_Name: dedupedFull,
+        Email: r.email_clean || r.email || '',
+        Phone_E164: r.phone_clean || '',
+        Company: r.company_clean || r.company || '',
+        Job_Title: r.job_title_clean || r.job_title || '',
+        Domain: r.domain || '',
+        Deal_ARR_USD: r.deal_arr != null ? r.deal_arr : '',
+        CRM_Notes: r.notes || '',
+        Clean_Status: 'VERIFIED_CLEAN',
+      };
+    });
 
   const ws = XLSX.utils.json_to_sheet(cleanRows.length > 0 ? cleanRows : [{ Status: 'No clean records' }]);
   const csvOutput = XLSX.utils.sheet_to_csv(ws);
-  const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+  // Prepend \uFEFF UTF-8 BOM so Excel and WPS Office display international characters cleanly
+  const blob = new Blob(['\uFEFF' + csvOutput], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
