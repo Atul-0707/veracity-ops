@@ -1,8 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { DataRecord, Workspace } from '@/lib/types';
 import { downloadCleanedCSV, downloadCleanedMasterExcel } from '@/lib/exportExcel';
 import { parseUploadedSpreadsheet } from '@/lib/fileParser';
 import { saveEphemeralRecords } from '@/lib/sessionStore';
+import {
+  scrubFileWithEngine,
+  checkPythonEngineHealth,
+  triggerDirectDownload,
+  type EngineStatusResponse,
+} from '@/lib/engineClient';
 import {
   UploadCloud,
   Download,
@@ -43,6 +49,19 @@ export function InstantScrub({
     processedRows: number;
     wasSliced: boolean;
   } | null>(null);
+
+  // Unified Python Engine State
+  const [engineStatus, setEngineStatus] = useState<EngineStatusResponse | null>(null);
+  const [excelDownloadUrl, setExcelDownloadUrl] = useState<string | null>(null);
+  const [csvDownloadUrl, setCsvDownloadUrl] = useState<string | null>(null);
+  const [activeEngineName, setActiveEngineName] = useState<string>('Detecting Core Engine...');
+
+  useEffect(() => {
+    checkPythonEngineHealth().then((status) => {
+      setEngineStatus(status);
+      setActiveEngineName(status.engine);
+    });
+  }, []);
 
   // Computed metrics
   const cleanRecords = useMemo(
@@ -106,25 +125,45 @@ export function InstantScrub({
   const processUploadedFile = async (file: File) => {
     setIsProcessing(true);
     try {
-      const result = await parseUploadedSpreadsheet(file);
+      // 1. Process directly on the unified Python Data Intelligence Engine
+      const result = await scrubFileWithEngine(file);
       if (result.records.length > 0) {
         saveEphemeralRecords(result.records);
-        if (result.wasSliced) {
-          setBatchNotice({
-            filename: file.name,
-            totalRows: result.totalOriginalRows,
-            processedRows: result.processedRows,
-            wasSliced: true,
-          });
-        } else {
-          setBatchNotice(null);
+        setActiveEngineName(result.engine);
+        if (result.excel_download_url) {
+          setExcelDownloadUrl(result.excel_download_url);
         }
+        if (result.csv_download_url) {
+          setCsvDownloadUrl(result.csv_download_url);
+        }
+        setBatchNotice({
+          filename: file.name,
+          totalRows: result.metrics.total_ingested,
+          processedRows: result.records.length,
+          wasSliced: false,
+        });
         onRefresh();
       }
     } catch (err: any) {
-      alert(`Error parsing file: ${err.message || err}`);
+      alert(`Error processing file with engine: ${err.message || err}`);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleExportExcel = () => {
+    if (excelDownloadUrl) {
+      triggerDirectDownload(excelDownloadUrl, `${workspace.company_name}_Master_Intelligence_Workbook.xlsx`);
+    } else {
+      downloadCleanedMasterExcel(records, workspace.company_name);
+    }
+  };
+
+  const handleDownloadCSV = () => {
+    if (csvDownloadUrl) {
+      triggerDirectDownload(csvDownloadUrl, `${workspace.slug}_clean_leads.csv`);
+    } else {
+      downloadCleanedCSV(records, `${workspace.slug}_clean_leads.csv`);
     }
   };
 
@@ -133,15 +172,28 @@ export function InstantScrub({
       {/* Top Banner / Headline */}
       <div className="bg-white p-7 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-200 text-primary-800 text-xs font-bold uppercase tracking-wider mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-primary-600" />
-            Zero-Config Outbound &amp; CRM Hygiene
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-200 text-primary-800 text-xs font-bold uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5 text-primary-600" />
+              Zero-Config Outbound &amp; CRM Hygiene
+            </div>
+            {engineStatus?.status === 'online' ? (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Python Engine Online (MasterExcelPresenter Active)
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium">
+                <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                Integrated Client Fallback
+              </div>
+            )}
           </div>
           <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
             1-Click Lead Scrub &amp; Golden Record Diff
           </h1>
           <p className="mt-1 text-sm text-slate-600 max-w-2xl">
-            Drop any chaotic Apollo, LinkedIn, or trade show export. Our deterministic engine merges duplicates, standardizes international phones to E.164, and purges syntax errors in seconds.
+            Drop any chaotic Apollo, LinkedIn, or trade show export. Our unified Python data intelligence engine merges duplicates, standardizes international phones to E.164, and purges syntax errors in seconds.
           </p>
         </div>
 
@@ -149,7 +201,7 @@ export function InstantScrub({
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           <button
             type="button"
-            onClick={() => downloadCleanedCSV(records, `${workspace.slug}_clean_leads.csv`)}
+            onClick={handleDownloadCSV}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
           >
             <Download className="w-4 h-4" />
@@ -157,11 +209,11 @@ export function InstantScrub({
           </button>
           <button
             type="button"
-            onClick={() => downloadCleanedMasterExcel(records, workspace.company_name)}
+            onClick={handleExportExcel}
             className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs font-bold transition shadow-2xs cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            Export 7-Tab Excel
+            Export 7-Tab Excel {excelDownloadUrl && '(Master Navy Blue)'}
           </button>
         </div>
       </div>
