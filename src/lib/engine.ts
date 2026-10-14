@@ -362,7 +362,16 @@ export function detectDuplicates(records: CleansedRecord[]): Map<string, string[
       byPhoneLast.get(key)!.push(r.record_id);
     }
     const compNorm = normalizeCompanyForDedup(r.company_clean || r.company);
-    if (compNorm && compNorm.length >= 3) {
+
+    // Contact-level composite match: Same First Name + Last Name at Same Company
+    if (r.entity_type === 'individual' && r.first_name_clean && r.last_name_clean && compNorm) {
+      const key = `${r.first_name_clean.toLowerCase()}_${r.last_name_clean.toLowerCase()}@${compNorm}`;
+      if (!byCompany.has(key)) byCompany.set(key, []);
+      byCompany.get(key)!.push(r.record_id);
+    }
+
+    // Organization-level match: Only cluster by company name alone if the dataset is an organizational entity list
+    if (r.entity_type === 'organization' && compNorm && compNorm.length >= 3) {
       if (!byCompany.has(compNorm)) byCompany.set(compNorm, []);
       byCompany.get(compNorm)!.push(r.record_id);
     }
