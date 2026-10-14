@@ -29,9 +29,9 @@ import {
 export const brand = {
   name: 'Veracity',
   logo: '/Logo_of_data_managment_service.png',
-  tagline: 'Revenue Operations, Without the Data Tax',
+  tagline: 'Pre-Ingestion Data Hygiene for Outbound & CRM Stacks',
   description:
-    'An air-gapped, non-destructive data intelligence layer for deduplication, cleansing, magical import, enrichment, and segmentation.',
+    'An automated, air-gapped data hygiene engine. Deduplicate, format, and sanitize chaotic lead lists in 30 seconds before burning Clay credits or poisoning your HubSpot CRM.',
   url: 'https://veracity.io',
   email: 'contact@veracity.io',
   supportEmail: 'support@veracity.io',
@@ -40,6 +40,53 @@ export const brand = {
     role: 'Lead RevOps Architecture',
     bio: 'Dedicated RevOps engineering and air-gapped pre-ingestion data intelligence for modern B2B revenue teams.',
   },
+};
+
+export const ecosystemTools = [
+  { name: 'Clay', benefit: 'Preserve Enrichment Credits', color: 'bg-amber-50 text-amber-800 border-amber-200' },
+  { name: 'Apollo.io', benefit: 'Scraped List Sanitation', color: 'bg-blue-50 text-blue-800 border-blue-200' },
+  { name: 'Smartlead', benefit: 'Protect Domain Reputation', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+  { name: 'Instantly', benefit: 'Zero-Bounce Deliverability', color: 'bg-purple-50 text-purple-800 border-purple-200' },
+  { name: 'HubSpot', benefit: 'Clean 1-Click Ingestion', color: 'bg-orange-50 text-orange-800 border-orange-200' },
+  { name: 'Salesforce', benefit: 'Enterprise Golden Records', color: 'bg-sky-50 text-sky-800 border-sky-200' },
+  { name: 'n8n / Zapier', benefit: 'Headless Pipeline Webhooks', color: 'bg-rose-50 text-rose-800 border-rose-200' },
+];
+
+export const agencyGtmContent = {
+  badge: 'BUILT FOR OUTBOUND AGENCIES & FRACTIONAL REVOPS',
+  title: 'Stop Wasting Billable Hours & Software Credits on Dirty Data.',
+  subtitle:
+    'High-performing GTM agencies and RevOps consultants don’t have time to clean spreadsheets by hand. Veracity automates the entire pre-flight checklist before campaigns touch client tools.',
+  pillars: [
+    {
+      title: 'Stop Burning Clay & Waterfall Credits',
+      description:
+        'Clay charges per enrichment row. Feeding 10,000 raw scraped leads with 2,500 duplicates burns 25% of your client’s budget on nothing. Veracity eliminates duplicates and invalid formats before enrichment runs.',
+      metric: 'Save ~25-30%',
+      metricLabel: 'On waterfall API spend',
+    },
+    {
+      title: 'Smartlead & Instantly Deliverability Armor',
+      description:
+        'A 5% bounce rate from invalid syntax or malformed company names can burn secondary domains overnight. Veracity scrubs email syntax, normalizes E.164 phone numbers, and flags catch-alls automatically.',
+      metric: '< 1.5%',
+      metricLabel: 'Target campaign bounce rate',
+    },
+    {
+      title: 'Zero-Effort CRM Ingestion for HubSpot & SFDC',
+      description:
+        'Never overwrite SDR notes or create 4 duplicate company entities when importing a trade-show or cold outbound batch. Veracity generates clean CSVs that map natively to CRM contact properties.',
+      metric: '0 Records Lost',
+      metricLabel: 'RFC 6902 reverse-patch audit',
+    },
+    {
+      title: 'Headless Webhooks & Instant File Drop',
+      description:
+        'No complicated dashboard required for day-to-day work. Send lists via private drop URL, automated email, or connect your n8n / Zapier workflows directly to our REST API.',
+      metric: '60 Seconds',
+      metricLabel: 'Turnaround on 10k records',
+    },
+  ],
 };
 
 export type NavItem = {

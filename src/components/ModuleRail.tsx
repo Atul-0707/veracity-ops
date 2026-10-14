@@ -1,4 +1,4 @@
-import { Gauge, UploadCloud, Sparkles, Users, Layers, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Zap, Gauge, UploadCloud, Sparkles, Users, Layers, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ModuleId } from '@/lib/types';
 
 interface ModuleRailProps {
@@ -9,6 +9,7 @@ interface ModuleRailProps {
 }
 
 const MODULES: { id: ModuleId; label: string; icon: any; description: string }[] = [
+  { id: 'instant', label: 'Instant Lead Scrub', icon: Zap, description: '1-click drop & clean CSV' },
   { id: 'health', label: 'Health Scoreboard', icon: Gauge, description: 'Executive scoreboard & ROI' },
   { id: 'import', label: '1. Magical Import', icon: UploadCloud, description: 'CSV/Excel auto-mapping' },
   { id: 'cleanse', label: '2. Clean & Standardize', icon: Sparkles, description: 'Phone, email, syntax scrub' },

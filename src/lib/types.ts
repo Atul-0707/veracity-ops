@@ -145,5 +145,5 @@ export interface AuditLogEntry {
   timestamp: string;
 }
 
-export type ModuleId = 'health' | 'import' | 'cleanse' | 'dedupe' | 'enrich' | 'quarantine';
+export type ModuleId = 'instant' | 'health' | 'import' | 'cleanse' | 'dedupe' | 'enrich' | 'quarantine';
 export type Persona = 'executive' | 'ops';

@@ -91,3 +91,38 @@ export function downloadCleanedMasterExcel(
   const dateStr = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `${filenamePrefix}_${dateStr}.xlsx`);
 }
+
+/**
+ * Generates and triggers instant 1-click download of clean CRM-ready CSV
+ */
+export function downloadCleanedCSV(
+  records: DataRecord[],
+  filename = 'Clean_Leads_CRM_Ready.csv'
+): void {
+  const cleanRows = records
+    .filter((r) => r.triage_status === 'clean' || r.triage_status === 'verified')
+    .map((r) => ({
+      Record_ID: r.record_id,
+      First_Name: r.first_name || '',
+      Last_Name: r.last_name || '',
+      Full_Name: `${r.first_name || ''} ${r.last_name || ''}`.trim() || r.company || '',
+      Email: r.email || '',
+      Phone_E164: r.phone || '',
+      Company: r.company || '',
+      Job_Title: r.title || '',
+      Domain: r.domain || '',
+      Clean_Status: 'VERIFIED_CLEAN',
+    }));
+
+  const ws = XLSX.utils.json_to_sheet(cleanRows.length > 0 ? cleanRows : [{ Status: 'No clean records' }]);
+  const csvOutput = XLSX.utils.sheet_to_csv(ws);
+  const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

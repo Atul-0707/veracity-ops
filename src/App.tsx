@@ -9,6 +9,7 @@ import { DEMO_WORKSPACE, getEphemeralRecords, clearEphemeralSession } from '@/li
 // Marketing Website Components
 import Header from '@/components/marketing/Header';
 import Hero from '@/components/marketing/Hero';
+import AgencyGTM from '@/components/marketing/AgencyGTM';
 import FeatureTabs from '@/components/marketing/FeatureTabs';
 import InfoZones from '@/components/marketing/InfoZones';
 import StatsTestimonials from '@/components/marketing/StatsTestimonials';
@@ -178,6 +179,7 @@ function LandingPage({
       <Header onOpenDemoSandbox={onOpenDemoSandbox} />
       <main>
         <Hero onOpenDemoSandbox={onOpenDemoSandbox} />
+        <AgencyGTM onOpenDemoSandbox={onOpenDemoSandbox} />
         <FeatureTabs />
         <InfoZones />
         <StatsTestimonials />

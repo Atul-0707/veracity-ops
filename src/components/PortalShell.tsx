@@ -4,6 +4,7 @@ import type { Workspace, ModuleId, Persona, DataRecord } from '@/lib/types';
 import { updateEphemeralRecord } from '@/lib/sessionStore';
 import { TenantBar } from './TenantBar';
 import { ModuleRail } from './ModuleRail';
+import { InstantScrub } from './InstantScrub';
 import { HealthCockpit } from './HealthCockpit';
 import { MagicalImport } from './MagicalImport';
 import { CleanseStudio } from './CleanseStudio';
@@ -21,7 +22,7 @@ interface PortalShellProps {
 }
 
 export function PortalShell({ workspace, records, recentRunId, onRefresh, onExit }: PortalShellProps) {
-  const [activeModule, setActiveModule] = useState<ModuleId>('health');
+  const [activeModule, setActiveModule] = useState<ModuleId>('instant');
   const [persona, setPersona] = useState<Persona>('ops');
   const [drawerRecord, setDrawerRecord] = useState<DataRecord | null>(null);
   const [railExpanded, setRailExpanded] = useState(true);
@@ -63,6 +64,16 @@ export function PortalShell({ workspace, records, recentRunId, onRefresh, onExit
 
   const renderModule = () => {
     switch (activeModule) {
+      case 'instant':
+        return (
+          <InstantScrub
+            workspace={workspace}
+            records={records}
+            onRefresh={onRefresh}
+            onRowClick={setDrawerRecord}
+            onNavigateToStudio={(tabId) => setActiveModule(tabId as ModuleId)}
+          />
+        );
       case 'health':
         return <HealthCockpit workspace={workspace} records={records} recentRunId={recentRunId} persona={persona} />;
       case 'import':
