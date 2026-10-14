@@ -114,6 +114,14 @@ function mapRowToRawLead(row: Record<string, any>, idx: number): RawLead {
   let firstName = findVal(['firstname', 'fname', 'first'], ['borrower', 'company', 'business', 'lender']);
   let lastName = findVal(['lastname', 'lname', 'last'], ['borrower', 'company', 'business', 'lender']);
 
+  // If first name has a trailing comma (e.g. "Vacca," or "Chatterjee,"), it was inverted in source export
+  if (firstName && firstName.endsWith(',')) {
+    const actualLast = firstName.replace(/,+$/, '').trim();
+    const actualFirst = (lastName || '').trim();
+    firstName = actualFirst;
+    lastName = actualLast;
+  }
+
   // Explicit Contact Name only (Never treat BorrowerName as a person's full name)
   const fullName = findVal(
     ['contactname', 'personname', 'customername', 'fullname', 'repname', 'leadname'],
@@ -121,13 +129,19 @@ function mapRowToRawLead(row: Record<string, any>, idx: number): RawLead {
   );
 
   if (!firstName && !lastName && fullName) {
-    const parts = fullName.split(/\s+/);
-    if (parts.length === 1) {
-      firstName = parts[0];
-      lastName = '';
+    if (fullName.includes(',')) {
+      const parts = fullName.split(',').map((p) => p.trim());
+      lastName = parts[0];
+      firstName = parts.slice(1).join(' ');
     } else {
-      firstName = parts[0];
-      lastName = parts.slice(1).join(' ');
+      const parts = fullName.split(/\s+/);
+      if (parts.length === 1) {
+        firstName = parts[0];
+        lastName = '';
+      } else {
+        firstName = parts[0];
+        lastName = parts.slice(1).join(' ');
+      }
     }
   }
 
@@ -145,6 +159,25 @@ function mapRowToRawLead(row: Record<string, any>, idx: number): RawLead {
   // Semantic Type Guard: Integer values (e.g. 62) are invalid job titles
   const jobTitle = isPureInteger(rawJobTitle) ? '' : rawJobTitle;
 
+  // 5. Website domain extraction
+  const rawWebsite = findVal(['website', 'domain', 'url', 'webpage', 'homepage']);
+  let websiteDomain = '';
+  if (rawWebsite) {
+    try {
+      let cleanUrl = rawWebsite.trim();
+      if (!/^https?:\/\//i.test(cleanUrl)) {
+        cleanUrl = 'https://' + cleanUrl;
+      }
+      const parsedUrl = new URL(cleanUrl);
+      websiteDomain = parsedUrl.hostname.replace(/^www\./i, '').toLowerCase();
+    } catch {
+      websiteDomain = rawWebsite.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0].toLowerCase();
+    }
+  }
+
+  const rawNotes = findVal(['notes', 'crmnotes', 'crm_notes', 'comment', 'description']);
+  const rawDealArr = findVal(['dealarr', 'arr', 'deal_arr_usd', 'deal_value', 'revenue', 'amount']);
+
   return {
     record_id: idVal,
     first_name: firstName || undefined,
@@ -155,6 +188,9 @@ function mapRowToRawLead(row: Record<string, any>, idx: number): RawLead {
     job_title: jobTitle || undefined,
     country: findVal(['country', 'nation']) || 'US',
     region: findVal(['borrowerstate', 'projectstate', 'state', 'region', 'territory', 'province']) || undefined,
+    domain: websiteDomain || undefined,
+    notes: rawNotes || undefined,
+    deal_arr: rawDealArr || undefined,
   };
 }
 
@@ -166,13 +202,18 @@ export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult>
   const arrayBuffer = await file.arrayBuffer();
   const isCsv = file.name.toLowerCase().endsWith('.csv');
 
-  // Ultra-fast line count scanner for CSVs without parsing cell objects
+  // Ultra-fast quote-aware line count scanner for CSVs without parsing cell objects
   let totalOriginalRows = 0;
   if (isCsv) {
     const bytes = new Uint8Array(arrayBuffer);
     let count = 0;
+    let inQuotes = false;
     for (let i = 0; i < bytes.length; i++) {
-      if (bytes[i] === 10) count++;
+      if (bytes[i] === 34) {
+        inQuotes = !inQuotes;
+      } else if (bytes[i] === 10 && !inQuotes) {
+        count++;
+      }
     }
     totalOriginalRows = Math.max(0, count - 1); // exclude header
   }
@@ -181,6 +222,16 @@ export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult>
   const workbook = XLSX.read(arrayBuffer, { type: 'array', sheetRows: 501 });
   const firstSheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
+
+  // Protect against formula evaluation truncation (e.g. DDE command injections starting with =)
+  for (const cellAddress in worksheet) {
+    if (cellAddress[0] === '!') continue;
+    const cell = worksheet[cellAddress];
+    if (cell && cell.f && (cell.v === undefined || cell.v === null || cell.v === '')) {
+      cell.v = '=' + cell.f;
+      cell.t = 's';
+    }
+  }
 
   // For Excel files, read total rows from worksheet range metadata if available
   if (!isCsv && worksheet['!ref']) {
@@ -272,9 +323,10 @@ export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult>
     health_score: r.health_score,
     is_duplicate: r.is_duplicate,
     duplicate_cluster_id: r.duplicate_cluster_id || null,
-    duplicate_type: r.duplicate_type || null,
     match_score: r.match_score || null,
     dataset_domain: domainProfile.profile,
+    notes: r.notes || null,
+    deal_arr: r.deal_arr != null ? r.deal_arr : null,
     created_at: new Date().toISOString(),
   }));
 

@@ -1,16 +1,58 @@
 import type { DataRecord, TriageStatus } from './types';
 
-const DISPOSABLE_DOMAINS = ['test.test', 'mailinator.com', 'guerrillamail.com', 'tempmail.com', '10minutemail.com'];
-const FAKE_PHONE_PATTERNS = [/^0+$/, /^9{10}$/, /^1{10}$/, /^12345/, /^\d{1,4}$/];
-const SENTINEL_VALUES = ['NULL', 'N/A', 'null', 'n/a', 'na', 'NA', '', 'TBD', 'tbd', '???', 'none', 'NONE'];
+export interface RawLead {
+  record_id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  company?: string | null;
+  job_title?: string | null;
+  country?: string | null;
+  region?: string | null;
+  domain?: string | null;
+  notes?: string | null;
+  deal_arr?: string | number | null;
+}
+
+const DISPOSABLE_DOMAINS = ['test.test', 'mailinator.com', 'guerrillamail.com', 'tempmail.com', '10minutemail.com', 'yopmail.com', 'example.com'];
+const FAKE_PHONE_PATTERNS = [
+  /^0+$/,
+  /^9{7,}$/,
+  /^1{7,}$/,
+  /^5{7,}$/,
+  /^12345/,
+  /^1112223333$/,
+  /^\d{1,6}$/
+];
+const SENTINEL_VALUES = ['NULL', 'N/A', 'null', 'n/a', 'na', 'NA', '', 'TBD', 'tbd', '???', 'none', 'NONE', 'unknown', 'UNKNOWN'];
 
 function isSentinel(value: string | null | undefined): boolean {
   if (!value) return true;
   return SENTINEL_VALUES.includes(value.trim());
 }
 
-function capitalizeName(name: string): string {
-  if (!name) return name;
+export function defangFormula(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (/^([=@]|[-+](?![0-9\s()\-.]+$))/i.test(trimmed)) {
+    return `'${trimmed}`;
+  }
+  return value;
+}
+
+export function isDummyLead(val: string | null | undefined): boolean {
+  if (!val) return false;
+  const v = val.toLowerCase().trim();
+  if (/^(asdf|qwerty|zxcv|1234|qwer|lkjh|poiu)/i.test(v)) return true;
+  if (/^[bcdfghjklmnpqrstvwxyz]{6,}$/i.test(v)) return true;
+  if (v === 'test user' || v === 'test company' || v === 'tester') return true;
+  if (v.includes('mickey mouse')) return true;
+  return false;
+}
+
+function capitalizeName(name: string | null | undefined): string | null {
+  if (!name) return null;
   const parts = name.trim().toLowerCase().split(/[\s_-]+/);
   return parts
     .map((p) => {
@@ -37,6 +79,9 @@ function repairMojibake(value: string): string {
     'â€™': "'",
     'â€œ': '"',
     'â€': '"',
+    'Ã¼': 'ü',
+    'Ã§': 'ç',
+    'Ã®': 'î',
   };
   let result = value;
   for (const [bad, good] of Object.entries(mojibakeMap)) {
@@ -54,18 +99,49 @@ function defangEmail(email: string): string {
     .toLowerCase();
 }
 
-function normalizePhone(phone: string): string {
-  const cleaned = phone.replace(/[^0-9+]/g, '');
+export function normalizePhone(phone: string): string {
+  const trimmed = phone.trim();
+  if (isFakePhone(trimmed)) return '[PURGED]';
+
+  const extMatch = trimmed.match(/(?:ext\.?|x|#|;)\s*(\d+)/i);
+  const ext = extMatch ? extMatch[1] : null;
+  const baseOnly = trimmed.split(/(?:ext\.?|x|#|;)/i)[0].trim();
+
+  let cleaned = baseOnly.replace(/[^0-9+]/g, '');
   if (cleaned.length < 7) return '[PURGED]';
-  if (cleaned.startsWith('+1')) return `+1 ${cleaned.slice(1)}`;
-  if (cleaned.startsWith('1') && cleaned.length === 11) return `+${cleaned}`;
-  if (cleaned.length === 10) return `+1 ${cleaned}`;
-  if (cleaned.startsWith('+')) return cleaned;
-  return `+${cleaned}`;
+
+  cleaned = cleaned.replace(/^\+([0-9]{2,3})0([0-9]+)$/, '+$1$2');
+
+  let formatted = '';
+  if (cleaned.startsWith('+1')) {
+    formatted = `+1 ${cleaned.slice(2, 5)} ${cleaned.slice(5, 8)} ${cleaned.slice(8)}`;
+  } else if (cleaned.startsWith('1') && cleaned.length === 11) {
+    formatted = `+1 ${cleaned.slice(1, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7)}`;
+  } else if (cleaned.length === 10) {
+    formatted = `+1 ${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
+  } else if (cleaned.startsWith('0') && cleaned.length === 11) {
+    formatted = `+44 ${cleaned.slice(1)}`;
+  } else if (cleaned.startsWith('+')) {
+    formatted = cleaned;
+  } else {
+    formatted = `+${cleaned}`;
+  }
+
+  return ext ? `${formatted} ext ${ext}` : formatted;
 }
 
-function isFakePhone(phone: string): boolean {
-  return FAKE_PHONE_PATTERNS.some((p) => p.test(phone.replace(/[^0-9]/g, '')));
+export function getBasePhoneForMatching(phone: string | null | undefined): string | null {
+  if (!phone || phone.includes('[PURGED]')) return null;
+  const baseOnly = phone.split(/(?:ext\.?|x|#|;)/i)[0].trim();
+  const digits = baseOnly.replace(/\D/g, '');
+  if (digits.length < 7) return null;
+  if (isFakePhone(digits)) return null;
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+}
+
+export function isFakePhone(phone: string): boolean {
+  const digits = phone.replace(/[^0-9]/g, '');
+  return FAKE_PHONE_PATTERNS.some((p) => p.test(digits));
 }
 
 function isDisposableEmail(email: string): boolean {
@@ -177,43 +253,54 @@ export interface CleansedRecord {
   duplicate_cluster_id?: string | null;
   duplicate_type?: 'email' | 'phone_lastname' | 'entity' | null;
   match_score?: number | null;
+  notes?: string | null;
+  deal_arr?: string | number | null;
 }
 
-export function cleanseRecord(raw: {
-  record_id: string;
-  first_name?: string | null;
-  last_name?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  company?: string | null;
-  job_title?: string | null;
-  country?: string | null;
-  region?: string | null;
-}): CleansedRecord {
+export function cleanseRecord(raw: RawLead): CleansedRecord {
   const flags: string[] = [];
   let triage: TriageStatus = 'clean';
   let quarantineReason: string | null = null;
   let healthScore = 100;
 
-  const firstName = raw.first_name ? repairMojibake(stripZeroWidthBytes(raw.first_name)) : null;
-  const lastName = raw.last_name ? repairMojibake(stripZeroWidthBytes(raw.last_name)) : null;
+  // Formula injection check across all fields
+  const formulaFields = [raw.first_name, raw.last_name, raw.job_title, raw.company, raw.notes];
+  if (formulaFields.some((v) => v && /^([=@]|[-+](?![0-9\s()\-.]+$))/i.test(String(v).trim()))) {
+    flags.push('SECURITY_SANITIZED');
+  }
+
+  const firstName = raw.first_name ? defangFormula(repairMojibake(stripZeroWidthBytes(raw.first_name))) : null;
+  const lastName = raw.last_name ? defangFormula(repairMojibake(stripZeroWidthBytes(raw.last_name))) : null;
   const email = raw.email ? defangEmail(stripZeroWidthBytes(raw.email)) : null;
   const phone = raw.phone ? stripZeroWidthBytes(raw.phone) : null;
-  const company = raw.company ? repairMojibake(stripZeroWidthBytes(raw.company)) : null;
-  const jobTitle = raw.job_title ? repairMojibake(stripZeroWidthBytes(raw.job_title)) : null;
+  const company = raw.company ? defangFormula(repairMojibake(stripZeroWidthBytes(raw.company))) : null;
+  const jobTitle = raw.job_title ? defangFormula(repairMojibake(stripZeroWidthBytes(raw.job_title))) : null;
+  const notes = raw.notes ? defangFormula(raw.notes) : null;
+  const dealArr = raw.deal_arr != null ? raw.deal_arr : null;
   const country = raw.country || null;
   const region = raw.region || null;
 
+  // Check for dummy lead / keyboard mash patterns (Strict fatal quarantine)
+  if (
+    isDummyLead(firstName) ||
+    isDummyLead(lastName) ||
+    isDummyLead(company) ||
+    isDummyLead(jobTitle) ||
+    (email && isDummyLead(email.split('@')[0]))
+  ) {
+    flags.push('SYNTHETIC_PLACEHOLDER');
+    triage = 'quarantined';
+    quarantineReason = 'Synthetic placeholder or keyboard mash detected';
+    healthScore = Math.min(healthScore, 20);
+  }
+
   // Determine if record is an Organization Entity or Individual Lead
-  const isOrg = Boolean(
-    (company && isOrganizationEntity(company)) ||
-    (!firstName && !lastName && company)
-  );
+  const isOrg = !firstName && !lastName && Boolean(company);
   const entityType: 'individual' | 'organization' = isOrg ? 'organization' : 'individual';
 
   // Clean name
-  const firstNameClean = isSentinel(firstName) ? null : capitalizeName(firstName);
-  const lastNameClean = isSentinel(lastName) ? null : capitalizeName(lastName);
+  const firstNameClean = isSentinel(firstName) || !firstName ? null : capitalizeName(firstName);
+  const lastNameClean = isSentinel(lastName) || !lastName ? null : capitalizeName(lastName);
   if (!firstNameClean && !lastNameClean) {
     if (entityType === 'individual') {
       flags.push('MISSING_NAME');
@@ -275,7 +362,7 @@ export function cleanseRecord(raw: {
   }
 
   // Clean company & job title with strict semantic type guards
-  const companyClean = isSentinel(company) ? null : capitalizeName(company);
+  const companyClean = isSentinel(company) || !company ? null : capitalizeName(company);
   let jobTitleClean: string | null = null;
   if (jobTitle && !isSentinel(jobTitle)) {
     if (!isValidJobTitle(jobTitle)) {
@@ -290,7 +377,7 @@ export function cleanseRecord(raw: {
   }
 
   // Enrich & Segment (Domain extraction, company auto-association, ICP tiering)
-  const domain = extractDomain(emailClean);
+  const domain = extractDomain(emailClean) || raw.domain || null;
   let finalCompanyClean = companyClean;
   let inferredCompany = false;
   if (!finalCompanyClean && domain) {
@@ -317,12 +404,12 @@ export function cleanseRecord(raw: {
 
   return {
     record_id: raw.record_id,
-    first_name: firstName,
-    last_name: lastName,
-    email: raw.email,
-    phone: raw.phone,
-    company: raw.company,
-    job_title: raw.job_title,
+    first_name: firstName || null,
+    last_name: lastName || null,
+    email: raw.email || null,
+    phone: raw.phone || null,
+    company: raw.company || null,
+    job_title: raw.job_title || null,
     country,
     region,
     first_name_clean: firstNameClean,
@@ -341,50 +428,103 @@ export function cleanseRecord(raw: {
     flag_tags: flags,
     health_score: healthScore,
     is_duplicate: false,
+    notes,
+    deal_arr: dealArr,
   };
 }
 
 export function detectDuplicates(records: CleansedRecord[]): Map<string, string[]> {
-  const clusters = new Map<string, string[]>();
-  const byEmail = new Map<string, string[]>();
-  const byPhoneLast = new Map<string, string[]>();
-  const byCompany = new Map<string, string[]>();
+  const adj = new Map<string, Set<string>>();
+  records.forEach((r) => adj.set(r.record_id, new Set<string>()));
 
+  const addEdge = (id1: string, id2: string) => {
+    if (id1 === id2) return;
+    adj.get(id1)?.add(id2);
+    adj.get(id2)?.add(id1);
+  };
+
+  // Vector A: Email
+  const byEmail = new Map<string, string[]>();
   for (const r of records) {
     if (r.email_clean && !r.email_clean.includes('[PURGED]')) {
-      const key = r.email_clean.toLowerCase();
-      if (!byEmail.has(key)) byEmail.set(key, []);
-      byEmail.get(key)!.push(r.record_id);
+      const em = r.email_clean.toLowerCase();
+      if (!byEmail.has(em)) byEmail.set(em, []);
+      byEmail.get(em)!.push(r.record_id);
     }
-    if (r.phone_clean && !r.phone_clean.includes('[PURGED]') && r.last_name_clean) {
-      const key = `${r.phone_clean}_${r.last_name_clean.toLowerCase()}`;
+  }
+  for (const [, ids] of byEmail) {
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        addEdge(ids[i], ids[j]);
+      }
+    }
+  }
+
+  // Vector B: Base Phone + Last Name
+  const byPhoneLast = new Map<string, string[]>();
+  for (const r of records) {
+    const basePhone = getBasePhoneForMatching(r.phone_clean || r.phone);
+    if (basePhone && r.last_name_clean) {
+      const key = `${basePhone}_${r.last_name_clean.toLowerCase()}`;
       if (!byPhoneLast.has(key)) byPhoneLast.set(key, []);
       byPhoneLast.get(key)!.push(r.record_id);
     }
-    const compNorm = normalizeCompanyForDedup(r.company_clean || r.company);
+  }
+  for (const [, ids] of byPhoneLast) {
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        addEdge(ids[i], ids[j]);
+      }
+    }
+  }
 
-    // Contact-level composite match: Same First Name + Last Name at Same Company
+  // Vector C: Composite Name + Company (Strictly requires same person at same company)
+  const byNameComp = new Map<string, string[]>();
+  for (const r of records) {
+    const compNorm = normalizeCompanyForDedup(r.company_clean || r.company);
     if (r.entity_type === 'individual' && r.first_name_clean && r.last_name_clean && compNorm) {
       const key = `${r.first_name_clean.toLowerCase()}_${r.last_name_clean.toLowerCase()}@${compNorm}`;
-      if (!byCompany.has(key)) byCompany.set(key, []);
-      byCompany.get(key)!.push(r.record_id);
-    }
-
-    // Organization-level match: Only cluster by company name alone if the dataset is an organizational entity list
-    if (r.entity_type === 'organization' && compNorm && compNorm.length >= 3) {
-      if (!byCompany.has(compNorm)) byCompany.set(compNorm, []);
-      byCompany.get(compNorm)!.push(r.record_id);
+      if (!byNameComp.has(key)) byNameComp.set(key, []);
+      byNameComp.get(key)!.push(r.record_id);
+    } else if (r.entity_type === 'organization' && compNorm && compNorm.length >= 3) {
+      if (!byNameComp.has(compNorm)) byNameComp.set(compNorm, []);
+      byNameComp.get(compNorm)!.push(r.record_id);
     }
   }
+  for (const [, ids] of byNameComp) {
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        addEdge(ids[i], ids[j]);
+      }
+    }
+  }
 
-  for (const [key, ids] of byEmail) {
-    if (ids.length > 1) clusters.set(`email:${key}`, ids);
-  }
-  for (const [key, ids] of byPhoneLast) {
-    if (ids.length > 1) clusters.set(`phone_lastname:${key}`, ids);
-  }
-  for (const [key, ids] of byCompany) {
-    if (ids.length > 1) clusters.set(`company:${key}`, ids);
+  const visited = new Set<string>();
+  const clusters = new Map<string, string[]>();
+  let clusterIdx = 1;
+
+  for (const id of adj.keys()) {
+    if (!visited.has(id)) {
+      const comp: string[] = [];
+      const queue = [id];
+      visited.add(id);
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        comp.push(curr);
+        for (const neighbor of adj.get(curr) || []) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push(neighbor);
+          }
+        }
+      }
+      if (comp.length > 1) {
+        const recs = comp.map(rid => records.find(x => x.record_id === rid)).filter(Boolean) as CleansedRecord[];
+        const emailRec = recs.find(x => x.email_clean);
+        const clusterKey = emailRec?.email_clean ? `email:${emailRec.email_clean}` : `cluster:${clusterIdx++}`;
+        clusters.set(clusterKey, comp);
+      }
+    }
   }
 
   return clusters;
@@ -398,78 +538,106 @@ export interface ClusterGroup {
   records: DataRecord[];
 }
 
-/**
- * Groups DataRecords into duplicate clusters across all 3 matching vectors (Email, Phone+Name, Entity).
- * Feeds directly into Tab 3: Merge Duplicates Studio.
- */
 export function groupRecordsIntoClusters(records: DataRecord[]): ClusterGroup[] {
   const clusters: ClusterGroup[] = [];
-  const assigned = new Set<string>();
+  const adj = new Map<string, Set<string>>();
+  records.forEach((r) => adj.set(r.id, new Set<string>()));
 
-  const addCluster = (
-    groupRecs: DataRecord[],
-    matchType: 'email' | 'phone_lastname' | 'entity',
-    clusterName: string,
-    score: number
-  ) => {
-    const unassigned = groupRecs.filter((r) => !assigned.has(r.id));
-    if (unassigned.length > 1) {
-      unassigned.forEach((r) => assigned.add(r.id));
-      clusters.push({
-        clusterId: `cluster-${clusters.length + 1}`,
-        clusterName,
-        matchType,
-        matchScore: score,
-        records: unassigned,
-      });
-    }
+  const addEdge = (id1: string, id2: string) => {
+    if (id1 === id2) return;
+    adj.get(id1)?.add(id2);
+    adj.get(id2)?.add(id1);
   };
 
-  // 1. Vector A: Email Match
-  const byEmail = new Map<string, DataRecord[]>();
+  // Vector A: Email
+  const byEmail = new Map<string, string[]>();
   for (const r of records) {
     if (r.email_clean && !r.email_clean.includes('[PURGED]')) {
-      const k = r.email_clean.toLowerCase();
-      if (!byEmail.has(k)) byEmail.set(k, []);
-      byEmail.get(k)!.push(r);
+      const em = r.email_clean.toLowerCase();
+      if (!byEmail.has(em)) byEmail.set(em, []);
+      byEmail.get(em)!.push(r.id);
     }
   }
-  for (const [email, recs] of byEmail) {
-    if (recs.length > 1) {
-      const name = recs[0].first_name_clean ? `${recs[0].first_name_clean} ${recs[0].last_name_clean || ''}`.trim() : email;
-      addCluster(recs, 'email', name, 99.4);
+  for (const [, ids] of byEmail) {
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        addEdge(ids[i], ids[j]);
+      }
     }
   }
 
-  // 2. Vector B: Phone + Last Name Match
-  const byPhoneLast = new Map<string, DataRecord[]>();
+  // Vector B: Base Phone + Last Name
+  const byPhoneLast = new Map<string, string[]>();
   for (const r of records) {
-    if (r.phone_clean && !r.phone_clean.includes('[PURGED]') && r.last_name_clean) {
-      const k = `${r.phone_clean}_${r.last_name_clean.toLowerCase()}`;
-      if (!byPhoneLast.has(k)) byPhoneLast.set(k, []);
-      byPhoneLast.get(k)!.push(r);
+    const basePhone = getBasePhoneForMatching(r.phone_clean || r.phone);
+    if (basePhone && r.last_name_clean) {
+      const key = `${basePhone}_${r.last_name_clean.toLowerCase()}`;
+      if (!byPhoneLast.has(key)) byPhoneLast.set(key, []);
+      byPhoneLast.get(key)!.push(r.id);
     }
   }
-  for (const [, recs] of byPhoneLast) {
-    if (recs.length > 1) {
-      const name = `${recs[0].first_name_clean || ''} ${recs[0].last_name_clean || ''}`.trim();
-      addCluster(recs, 'phone_lastname', name || 'Matching Phone & Name', 95.8);
+  for (const [, ids] of byPhoneLast) {
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        addEdge(ids[i], ids[j]);
+      }
     }
   }
 
-  // 3. Vector C: Company / Borrower Entity Match (Fuzzy legal suffix normalized)
-  const byCompany = new Map<string, DataRecord[]>();
+  // Vector C: Composite Name + Company
+  const byNameComp = new Map<string, string[]>();
   for (const r of records) {
     const compNorm = normalizeCompanyForDedup(r.company_clean || r.company);
-    if (compNorm && compNorm.length >= 3) {
-      if (!byCompany.has(compNorm)) byCompany.set(compNorm, []);
-      byCompany.get(compNorm)!.push(r);
+    if (r.entity_type === 'individual' && r.first_name_clean && r.last_name_clean && compNorm) {
+      const key = `${r.first_name_clean.toLowerCase()}_${r.last_name_clean.toLowerCase()}@${compNorm}`;
+      if (!byNameComp.has(key)) byNameComp.set(key, []);
+      byNameComp.get(key)!.push(r.id);
+    } else if (r.entity_type === 'organization' && compNorm && compNorm.length >= 3) {
+      if (!byNameComp.has(compNorm)) byNameComp.set(compNorm, []);
+      byNameComp.get(compNorm)!.push(r.id);
     }
   }
-  for (const [, recs] of byCompany) {
-    if (recs.length > 1) {
-      const entityName = recs[0].company_clean || recs[0].company || 'Corporate Entity';
-      addCluster(recs, 'entity', entityName, 97.5);
+  for (const [, ids] of byNameComp) {
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        addEdge(ids[i], ids[j]);
+      }
+    }
+  }
+
+  const visited = new Set<string>();
+  let clusterCount = 1;
+  for (const id of adj.keys()) {
+    if (!visited.has(id)) {
+      const compIds: string[] = [];
+      const queue = [id];
+      visited.add(id);
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        compIds.push(curr);
+        for (const neighbor of adj.get(curr) || []) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push(neighbor);
+          }
+        }
+      }
+      if (compIds.length > 1) {
+        const groupRecs = compIds.map(cid => records.find(x => x.id === cid)).filter(Boolean) as DataRecord[];
+        const name = groupRecs[0].first_name_clean
+          ? `${groupRecs[0].first_name_clean} ${groupRecs[0].last_name_clean || ''}`.trim()
+          : (groupRecs[0].company_clean || 'Duplicate Group');
+        const hasEmailMatch = groupRecs.filter(x => x.email_clean).length > 1;
+        const matchType = hasEmailMatch ? 'email' : 'phone_lastname';
+        const score = hasEmailMatch ? 99.4 : 95.8;
+        clusters.push({
+          clusterId: `cluster-${clusterCount++}`,
+          clusterName: name,
+          matchType,
+          matchScore: score,
+          records: groupRecs,
+        });
+      }
     }
   }
 

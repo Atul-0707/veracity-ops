@@ -358,7 +358,7 @@ export function InstantScrub({
                       <div className="font-bold text-slate-900">
                         {r.first_name} {r.last_name}
                       </div>
-                      <div className="text-[11px] text-slate-500">{r.title || 'Executive'}</div>
+                      <div className="text-[11px] text-slate-500">{r.job_title_clean || r.job_title || 'Executive'}</div>
                     </td>
                     <td className="py-3 px-4 font-mono text-[11px] text-slate-700">
                       {r.email}

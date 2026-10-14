@@ -109,7 +109,7 @@ export function downloadCleanedCSV(
       Email: r.email || '',
       Phone_E164: r.phone || '',
       Company: r.company || '',
-      Job_Title: r.title || '',
+      Job_Title: r.job_title_clean || r.job_title || '',
       Domain: r.domain || '',
       Clean_Status: 'VERIFIED_CLEAN',
     }));

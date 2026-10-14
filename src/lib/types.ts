@@ -84,9 +84,10 @@ export interface DataRecord {
   duplicate_cluster_id: string | null;
   duplicate_type?: 'email' | 'phone_lastname' | 'entity' | null;
   duplicate_reason?: string | null;
-  match_score?: number | null;
   entity_type?: 'individual' | 'organization';
   dataset_domain?: 'CRM_LEADS' | 'FINANCIAL_PORTFOLIO' | 'GENERIC';
+  notes?: string | null;
+  deal_arr?: string | number | null;
   created_at: string;
 }
 
