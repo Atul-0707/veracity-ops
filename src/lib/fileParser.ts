@@ -164,12 +164,37 @@ function mapRowToRawLead(row: Record<string, any>, idx: number): RawLead {
  */
 export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult> {
   const arrayBuffer = await file.arrayBuffer();
-  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  const isCsv = file.name.toLowerCase().endsWith('.csv');
 
+  // Ultra-fast line count scanner for CSVs without parsing cell objects
+  let totalOriginalRows = 0;
+  if (isCsv) {
+    const bytes = new Uint8Array(arrayBuffer);
+    let count = 0;
+    for (let i = 0; i < bytes.length; i++) {
+      if (bytes[i] === 10) count++;
+    }
+    totalOriginalRows = Math.max(0, count - 1); // exclude header
+  }
+
+  // Parse only up to 501 rows with SheetJS to protect browser main-thread event loop from freezing
+  const workbook = XLSX.read(arrayBuffer, { type: 'array', sheetRows: 501 });
   const firstSheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
 
+  // For Excel files, read total rows from worksheet range metadata if available
+  if (!isCsv && worksheet['!ref']) {
+    const match = worksheet['!ref'].match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
+    if (match) {
+      totalOriginalRows = Math.max(0, parseInt(match[4], 10) - parseInt(match[2], 10));
+    }
+  }
+
   const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+  if (totalOriginalRows === 0) {
+    totalOriginalRows = rawRows.length;
+  }
 
   // Extract raw column headers
   const rawHeaders: string[] = [];
@@ -180,9 +205,8 @@ export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult>
   // Pre-Ingestion Domain Fingerprint
   const domainProfile = profileDatasetDomain(rawHeaders);
 
-  const totalOriginalRows = rawRows.length;
   const wasSliced = totalOriginalRows > 500;
-  const targetRows = wasSliced ? rawRows.slice(0, 500) : rawRows;
+  const targetRows = rawRows.slice(0, 500);
 
   // Cleanse each record with semantic validation
   const cleansed = targetRows.map((row, idx) => {

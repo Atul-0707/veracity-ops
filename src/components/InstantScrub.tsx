@@ -37,6 +37,12 @@ export function InstantScrub({
   const [search, setSearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [batchNotice, setBatchNotice] = useState<{
+    filename: string;
+    totalRows: number;
+    processedRows: number;
+    wasSliced: boolean;
+  } | null>(null);
 
   // Computed metrics
   const cleanRecords = useMemo(
@@ -96,6 +102,16 @@ export function InstantScrub({
       const result = await parseUploadedSpreadsheet(file);
       if (result.records.length > 0) {
         saveEphemeralRecords(result.records);
+        if (result.wasSliced) {
+          setBatchNotice({
+            filename: file.name,
+            totalRows: result.totalOriginalRows,
+            processedRows: result.processedRows,
+            wasSliced: true,
+          });
+        } else {
+          setBatchNotice(null);
+        }
         onRefresh();
       }
     } catch (err: any) {
@@ -186,6 +202,24 @@ export function InstantScrub({
           </div>
         </div>
       </div>
+
+      {/* Enterprise Volume Notification Banner */}
+      {batchNotice && batchNotice.wasSliced && (
+        <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200/90 flex items-start gap-3.5 shadow-2xs animate-fade-in">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <div className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+              <span>Enterprise Dataset Detected</span>
+              <span className="font-mono bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded text-[11px]">
+                {batchNotice.totalRows.toLocaleString()} rows in {batchNotice.filename}
+              </span>
+            </div>
+            <p className="text-xs text-amber-800 leading-relaxed">
+              To protect browser memory and maintain zero-latency responsiveness, our in-memory engine loaded an interactive <strong>{batchNotice.processedRows}-record pre-flight diagnostic sample</strong>. Full {batchNotice.totalRows.toLocaleString()}-record production batch jobs execute headless via our Python DuckDB REST API / n8n webhook queue.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 4 Outcome Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
