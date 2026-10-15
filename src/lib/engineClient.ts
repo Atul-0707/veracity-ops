@@ -109,6 +109,16 @@ export async function scrubFileWithEngine(file: File): Promise<EngineScrubResult
           is_golden_master: true,
           is_subordinate: false,
           deal_arr: r.deal_arr_usd || 0,
+          first_name_casual: r.first_name_casual || r.first_name_clean || null,
+          company_casual: r.company_casual || r.company_clean || null,
+          phone_extension: r.phone_extension || null,
+          email_channel_status: r.email_channel_status || null,
+          dialer_channel_status: r.dialer_channel_status || null,
+          account_contact_sequence_index: r.account_contact_sequence_index || null,
+          account_has_open_deal: r.account_has_open_deal ?? null,
+          dnc_suppressed: r.dnc_suppressed ?? null,
+          outbound_ready_for_smartlead: r.outbound_ready_for_smartlead ?? null,
+          outbound_ready_for_orum: r.outbound_ready_for_orum ?? null,
           created_at: new Date().toISOString(),
         }));
 

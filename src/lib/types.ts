@@ -91,6 +91,16 @@ export interface DataRecord {
   dataset_domain?: 'CRM_LEADS' | 'FINANCIAL_PORTFOLIO' | 'GENERIC';
   notes?: string | null;
   deal_arr?: string | number | null;
+  first_name_casual?: string | null;
+  company_casual?: string | null;
+  phone_extension?: string | null;
+  email_channel_status?: 'READY_TO_SEND' | 'MISSING_EMAIL_ENRICH_IN_CLAY' | 'SUPPRESSED_OPT_OUT' | 'INVALID_SYNTAX_OR_BURNER' | 'ROLE_BASED_SPAM_TRAP' | string | null;
+  dialer_channel_status?: 'VALID_E164' | 'VALID_E164_WITH_EXT' | 'NO_PHONE_AVAILABLE' | string | null;
+  account_contact_sequence_index?: string | null;
+  account_has_open_deal?: boolean | null;
+  dnc_suppressed?: boolean | null;
+  outbound_ready_for_smartlead?: boolean | null;
+  outbound_ready_for_orum?: boolean | null;
   created_at: string;
 }
 

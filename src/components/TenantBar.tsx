@@ -39,11 +39,15 @@ export function TenantBar({ workspace, persona, onPersonaChange, onRefresh, onEx
     <header className="bg-slate-900 text-slate-100 border-b border-slate-800 flex items-center justify-between px-4 h-14 shrink-0 z-20 relative">
       {/* Brand & Sandbox Identity */}
       <div className="flex items-center gap-3 min-w-0">
-        <div className="flex items-center gap-2">
+        <div
+          onClick={onExit}
+          className="flex items-center gap-2 cursor-pointer group"
+          title="Veracity Home"
+        >
           <img
             src="/logo.png"
             alt="Veracity Logo"
-            className="w-8 h-8 rounded-lg object-contain bg-white p-1 border border-slate-700 shadow-sm shrink-0"
+            className="w-8 h-8 rounded-lg object-contain bg-white p-1 border border-slate-700 shadow-sm shrink-0 group-hover:border-sky-500 transition-colors"
           />
           <span className="font-semibold text-sm tracking-tight text-white hidden sm:inline">Veracity Data Intelligence</span>
         </div>
@@ -128,7 +132,7 @@ export function TenantBar({ workspace, persona, onPersonaChange, onRefresh, onEx
               <button
                 type="button"
                 onClick={() => setShowQuotaDetail(false)}
-                className="w-full py-1 text-[11px] text-center text-slate-400 hover:text-white bg-slate-800 rounded-lg"
+                className="w-full py-1 text-[11px] text-center text-slate-400 hover:text-white bg-slate-800 rounded-lg cursor-pointer"
               >
                 Close Ledger
               </button>
@@ -137,27 +141,27 @@ export function TenantBar({ workspace, persona, onPersonaChange, onRefresh, onEx
         </div>
       </div>
 
-      {/* Active Dataset Indicator Banner */}
-      <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/80 text-[11px] text-slate-300">
+      {/* Active Dataset Indicator Banner - Streamlined Institutional Pill */}
+      <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-800/60 border border-slate-700/60 text-[11px] text-slate-300">
         <Database className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-        <span className="text-slate-400">Active File:</span>
-        <span className={`font-mono font-medium ${isBenchmark ? 'text-amber-300' : 'text-emerald-300'}`}>
+        <span className="text-slate-400">File:</span>
+        <span className="font-mono text-slate-200 font-medium">
           {datasetName}
         </span>
         {isBenchmark && (
-          <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
-            Preloaded Benchmark
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-sans border border-slate-600">
+            Sample
           </span>
         )}
       </div>
 
-      {/* Right Action Controls: Persona Toggle, Reset, Refresh, Home */}
+      {/* Right Action Controls: Persona Toggle, Refresh, Reset */}
       <div className="flex items-center gap-2 shrink-0">
         {/* Executive / Data Ops Persona Switcher */}
         <div className="flex items-center bg-slate-800/90 border border-slate-700/80 rounded-lg p-0.5">
           <button
             onClick={() => onPersonaChange('executive')}
-            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
               persona === 'executive' ? 'bg-sky-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-slate-200'
             }`}
             title="Executive Boardroom Scoreboard (CRO / CFO Focus)"
@@ -166,7 +170,7 @@ export function TenantBar({ workspace, persona, onPersonaChange, onRefresh, onEx
           </button>
           <button
             onClick={() => onPersonaChange('ops')}
-            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
               persona === 'ops' ? 'bg-sky-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-slate-200'
             }`}
             title="Technical Data Ops Grid (High Density Ghost Diffs)"
@@ -175,36 +179,24 @@ export function TenantBar({ workspace, persona, onPersonaChange, onRefresh, onEx
           </button>
         </div>
 
-        {/* Reset Sandbox Data */}
-        <button
-          onClick={handleReset}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
-          title="Reset sandbox data back to clean sample benchmark"
-        >
-          <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-          <span className="hidden sm:inline">Reset Sandbox</span>
-        </button>
-
-        {/* Refresh View */}
-        <button
-          onClick={onRefresh}
-          className="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 rounded-lg transition-colors"
-          title="Re-evaluate active records"
-        >
-          Refresh
-        </button>
-
-        {/* Exit to Home */}
-        {onExit && (
+        {/* Unified Refresh & Reset Group */}
+        <div className="flex items-center gap-1.5">
           <button
-            onClick={onExit}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-colors"
-            title="Return to Landing Page"
+            onClick={onRefresh}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 rounded-lg transition-colors cursor-pointer"
+            title="Re-evaluate active records"
           >
-            <Home className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Home</span>
+            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+            <span>Refresh</span>
           </button>
-        )}
+          <button
+            onClick={handleReset}
+            className="px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-rose-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-rose-900/40 rounded-lg transition-colors cursor-pointer"
+            title="Clear temporary sandbox data and reload default sample benchmark"
+          >
+            Reset
+          </button>
+        </div>
       </div>
     </header>
   );
