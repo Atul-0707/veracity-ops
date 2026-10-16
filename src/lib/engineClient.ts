@@ -66,17 +66,26 @@ export async function checkPythonEngineHealth(): Promise<EngineStatusResponse> {
 }
 
 export async function scrubFileWithEngine(file: File): Promise<EngineScrubResult> {
-  // 1. Attempt to execute directly on the Python Data Intelligence Engine
+  // 1. Only attempt to execute on Python backend if the backend is actually online and reachable
+  let isBackendOnline = false;
   try {
-    const formData = new FormData();
-    formData.append('file', file);
+    const health = await checkPythonEngineHealth();
+    isBackendOnline = health.status === 'online';
+  } catch {
+    isBackendOnline = false;
+  }
 
-    const response = await fetch(`${BACKEND_BASE}/api/v1/engine/scrub`, {
-      method: 'POST',
-      body: formData,
-    });
+  if (isBackendOnline) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
 
-    if (response.ok) {
+      const response = await fetch(`${BACKEND_BASE}/api/v1/engine/scrub`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
       const data = await response.json();
       if (data.success && Array.isArray(data.records) && data.records.length > 0) {
         // Map backend records to DataRecord interface
@@ -136,6 +145,7 @@ export async function scrubFileWithEngine(file: File): Promise<EngineScrubResult
     }
   } catch (err) {
     console.warn('[EngineClient] Python backend unavailable on port 8000, using client deterministic fallback:', err);
+  }
   }
 
   // 2. Fallback to client-side deterministic pipeline if Python backend server is offline

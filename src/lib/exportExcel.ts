@@ -219,35 +219,62 @@ export function downloadCleanedCSV(
   records: DataRecord[],
   filename = 'Clean_Leads_CRM_Ready.csv'
 ): void {
-  const cleanRows = records
-    .filter((r) => (r.triage_status === 'clean' || r.triage_status === 'verified') && !r.is_subordinate)
-    .map((r) => {
-      const fn = r.first_name_clean || r.first_name || '';
-      const ln = r.last_name_clean || r.last_name || '';
-      const rawFull = `${fn} ${ln}`.trim() || r.company_clean || r.company || '';
-      const tokens = rawFull.split(/\s+/).filter(Boolean);
-      const dedupedFull = tokens.filter((t, i) => i === 0 || t.toLowerCase() !== tokens[i - 1].toLowerCase()).join(' ');
+  const cleanRows = records.filter(
+    (r) => (r.triage_status === 'clean' || r.triage_status === 'verified') && !r.is_subordinate
+  );
 
-      return {
-        Record_ID: r.record_id,
-        First_Name: fn,
-        Last_Name: ln,
-        Full_Name: dedupedFull,
-        Email: r.email_clean || r.email || '',
-        Phone_E164: r.phone_clean || '',
-        Company: r.company_clean || r.company || '',
-        Job_Title: r.job_title_clean || r.job_title || '',
-        Domain: r.domain || '',
-        Deal_ARR_USD: r.deal_arr != null ? r.deal_arr : '',
-        CRM_Notes: r.notes || '',
-        Clean_Status: 'VERIFIED_CLEAN',
-      };
-    });
+  const headers = [
+    'Record_ID',
+    'First_Name',
+    'Last_Name',
+    'Full_Name',
+    'Email',
+    'Phone_E164',
+    'Company',
+    'Job_Title',
+    'Domain',
+    'Deal_ARR_USD',
+    'CRM_Notes',
+    'Clean_Status',
+  ];
 
-  const ws = XLSX.utils.json_to_sheet(cleanRows.length > 0 ? cleanRows : [{ Status: 'No clean records' }]);
-  const csvOutput = XLSX.utils.sheet_to_csv(ws);
-  // Prepend \uFEFF UTF-8 BOM so Excel and WPS Office display international characters cleanly
-  const blob = new Blob(['\uFEFF' + csvOutput], { type: 'text/csv;charset=utf-8;' });
+  const escapeCell = (val: any) => {
+    if (val === undefined || val === null) return '';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const lines: string[] = [headers.join(',')];
+
+  for (const r of cleanRows) {
+    const fn = r.first_name_clean || r.first_name || '';
+    const ln = r.last_name_clean || r.last_name || '';
+    const rawFull = `${fn} ${ln}`.trim() || r.company_clean || r.company || '';
+    const tokens = rawFull.split(/\s+/).filter(Boolean);
+    const dedupedFull = tokens.filter((t, i) => i === 0 || t.toLowerCase() !== tokens[i - 1].toLowerCase()).join(' ');
+
+    const row = [
+      escapeCell(r.record_id),
+      escapeCell(fn),
+      escapeCell(ln),
+      escapeCell(dedupedFull),
+      escapeCell(r.email_clean || r.email || ''),
+      escapeCell(r.phone_clean || ''),
+      escapeCell(r.company_clean || r.company || ''),
+      escapeCell(r.job_title_clean || r.job_title || ''),
+      escapeCell(r.domain || ''),
+      escapeCell(r.deal_arr != null ? r.deal_arr : ''),
+      escapeCell(r.notes || ''),
+      'VERIFIED_CLEAN',
+    ];
+    lines.push(row.join(','));
+  }
+
+  // Prepend \uFEFF UTF-8 BOM so Excel displays international characters cleanly
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);

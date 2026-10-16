@@ -215,58 +215,207 @@ function mapRowToRawLead(row: Record<string, any>, idx: number): RawLead {
   };
 }
 
-/**
- * Parses any uploaded File (.csv, .xlsx, .xls) in-browser.
- * Enforces pre-ingestion domain fingerprinting and the strict 500-record diagnostic ceiling.
- */
-export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult> {
-  const arrayBuffer = await file.arrayBuffer();
-  const isCsv = file.name.toLowerCase().endsWith('.csv');
+export function parseCsvLine(text: string): string[] {
+  const result: string[] = [];
+  let cur = '';
+  let inQuotes = false;
+  const len = text.length;
 
-  // Ultra-fast quote-aware line count scanner for CSVs without parsing cell objects
-  let totalOriginalRows = 0;
-  if (isCsv) {
-    const bytes = new Uint8Array(arrayBuffer);
-    let count = 0;
-    let inQuotes = false;
-    for (let i = 0; i < bytes.length; i++) {
-      if (bytes[i] === 34) {
+  for (let i = 0; i < len; i++) {
+    const c = text[i];
+    if (c === '"') {
+      if (inQuotes && i + 1 < len && text[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else {
         inQuotes = !inQuotes;
-      } else if (bytes[i] === 10 && !inQuotes) {
-        count++;
+      }
+    } else if (c === ',' && !inQuotes) {
+      result.push(cur.trim());
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+export async function streamParseCsv(
+  file: File,
+  maxRowsToIngest = 50000
+): Promise<{ rawRows: Record<string, any>[]; rawHeaders: string[]; totalRows: number }> {
+  let headers: string[] | null = null;
+  const rawRows: Record<string, any>[] = [];
+  let leftover = '';
+  let lineCount = 0;
+
+  // Modern browsers support file.stream() for non-blocking memory-safe streaming
+  if (typeof (file as any).stream === 'function') {
+    const reader = (file as any).stream().getReader();
+    const decoder = new TextDecoder('utf-8');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunkText = leftover + decoder.decode(value, { stream: true });
+      const lines = chunkText.split(/\r?\n/);
+      leftover = lines.pop() || '';
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        if (!headers) {
+          headers = parseCsvLine(line);
+          continue;
+        }
+
+        lineCount++;
+        if (rawRows.length < maxRowsToIngest) {
+          const cells = parseCsvLine(line);
+          const rowObj: Record<string, any> = {};
+          const colLimit = Math.min(headers.length, cells.length);
+          for (let c = 0; c < colLimit; c++) {
+            rowObj[headers[c]] = cells[c] ?? '';
+          }
+          rawRows.push(rowObj);
+        }
+
+        // Yield to browser event loop every 2,500 lines so the UI stays 60fps responsive
+        if (lineCount % 2500 === 0) {
+          await new Promise((r) => setTimeout(r, 0));
+        }
       }
     }
-    totalOriginalRows = Math.max(0, count - 1); // exclude header
-  }
 
-  // Parse full spreadsheet in-browser without artificial 500-row truncation
-  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-  const firstSheetName = workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[firstSheetName];
+    if (leftover.trim()) {
+      const line = leftover.trim();
+      if (!headers) {
+        headers = parseCsvLine(line);
+      } else {
+        lineCount++;
+        if (rawRows.length < maxRowsToIngest) {
+          const cells = parseCsvLine(line);
+          const rowObj: Record<string, any> = {};
+          const colLimit = Math.min(headers.length, cells.length);
+          for (let c = 0; c < colLimit; c++) {
+            rowObj[headers[c]] = cells[c] ?? '';
+          }
+          rawRows.push(rowObj);
+        }
+      }
+    }
+  } else {
+    // Slicing fallback for older browser engines
+    const CHUNK_SIZE = 1024 * 1024 * 2; // 2MB chunks
+    let offset = 0;
+    while (offset < file.size) {
+      const slice = file.slice(offset, offset + CHUNK_SIZE);
+      const textChunk = leftover + (await slice.text());
+      offset += CHUNK_SIZE;
+      const lines = textChunk.split(/\r?\n/);
+      leftover = lines.pop() || '';
 
-  // Protect against formula evaluation truncation (e.g. DDE command injections starting with =)
-  for (const cellAddress in worksheet) {
-    if (cellAddress[0] === '!') continue;
-    const cell = worksheet[cellAddress];
-    if (cell && cell.f && (cell.v === undefined || cell.v === null || cell.v === '')) {
-      cell.v = '=' + cell.f;
-      cell.t = 's';
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        if (!headers) {
+          headers = parseCsvLine(line);
+          continue;
+        }
+
+        lineCount++;
+        if (rawRows.length < maxRowsToIngest) {
+          const cells = parseCsvLine(line);
+          const rowObj: Record<string, any> = {};
+          const colLimit = Math.min(headers.length, cells.length);
+          for (let c = 0; c < colLimit; c++) {
+            rowObj[headers[c]] = cells[c] ?? '';
+          }
+          rawRows.push(rowObj);
+        }
+
+        if (lineCount % 2500 === 0) {
+          await new Promise((r) => setTimeout(r, 0));
+        }
+      }
+    }
+
+    if (leftover.trim()) {
+      const line = leftover.trim();
+      if (!headers) {
+        headers = parseCsvLine(line);
+      } else {
+        lineCount++;
+        if (rawRows.length < maxRowsToIngest) {
+          const cells = parseCsvLine(line);
+          const rowObj: Record<string, any> = {};
+          const colLimit = Math.min(headers.length, cells.length);
+          for (let c = 0; c < colLimit; c++) {
+            rowObj[headers[c]] = cells[c] ?? '';
+          }
+          rawRows.push(rowObj);
+        }
+      }
     }
   }
 
-  const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-  totalOriginalRows = rawRows.length;
+  return {
+    rawRows,
+    rawHeaders: headers || [],
+    totalRows: lineCount,
+  };
+}
 
-  // Extract raw column headers
-  const rawHeaders: string[] = [];
-  if (rawRows.length > 0) {
-    rawHeaders.push(...Object.keys(rawRows[0]));
+/**
+ * Parses any uploaded File (.csv, .xlsx, .xls) in-browser.
+ * Enforces pre-ingestion domain fingerprinting with non-blocking streaming.
+ */
+export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult> {
+  const isCsv = file.name.toLowerCase().endsWith('.csv');
+
+  let rawRows: Record<string, any>[] = [];
+  let rawHeaders: string[] = [];
+  let totalOriginalRows = 0;
+  let wasSliced = false;
+
+  if (isCsv) {
+    // Ultra-fast streaming parse with 0 XLSX overhead and zero browser freeze
+    const csvData = await streamParseCsv(file, 50000);
+    rawRows = csvData.rawRows;
+    rawHeaders = csvData.rawHeaders;
+    totalOriginalRows = csvData.totalRows;
+    wasSliced = csvData.totalRows > rawRows.length;
+  } else {
+    // Binary Excel file (.xlsx, .xls)
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+
+    // Protect against formula evaluation truncation (e.g. DDE command injections starting with =)
+    for (const cellAddress in worksheet) {
+      if (cellAddress[0] === '!') continue;
+      const cell = worksheet[cellAddress];
+      if (cell && cell.f && (cell.v === undefined || cell.v === null || cell.v === '')) {
+        cell.v = '=' + cell.f;
+        cell.t = 's';
+      }
+    }
+
+    rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+    totalOriginalRows = rawRows.length;
+    if (rawRows.length > 0) {
+      rawHeaders.push(...Object.keys(rawRows[0]));
+    }
+    wasSliced = false;
   }
 
   // Pre-Ingestion Domain Fingerprint
   const domainProfile = profileDatasetDomain(rawHeaders);
-
-  const wasSliced = false;
   const targetRows = rawRows;
 
   // Cleanse all records with non-blocking event-loop yields every 2,500 rows so the browser UI never freezes
