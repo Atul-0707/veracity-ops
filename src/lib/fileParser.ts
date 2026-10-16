@@ -239,8 +239,8 @@ export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult>
     totalOriginalRows = Math.max(0, count - 1); // exclude header
   }
 
-  // Parse only up to 501 rows with SheetJS to protect browser main-thread event loop from freezing
-  const workbook = XLSX.read(arrayBuffer, { type: 'array', sheetRows: 501 });
+  // Parse full spreadsheet in-browser without artificial 500-row truncation
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
 
@@ -254,19 +254,8 @@ export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult>
     }
   }
 
-  // For Excel files, read total rows from worksheet range metadata if available
-  if (!isCsv && worksheet['!ref']) {
-    const match = worksheet['!ref'].match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
-    if (match) {
-      totalOriginalRows = Math.max(0, parseInt(match[4], 10) - parseInt(match[2], 10));
-    }
-  }
-
   const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-
-  if (totalOriginalRows === 0) {
-    totalOriginalRows = rawRows.length;
-  }
+  totalOriginalRows = rawRows.length;
 
   // Extract raw column headers
   const rawHeaders: string[] = [];
@@ -277,24 +266,33 @@ export async function parseUploadedSpreadsheet(file: File): Promise<ParseResult>
   // Pre-Ingestion Domain Fingerprint
   const domainProfile = profileDatasetDomain(rawHeaders);
 
-  const wasSliced = totalOriginalRows > 500;
-  const targetRows = rawRows.slice(0, 500);
+  const wasSliced = false;
+  const targetRows = rawRows;
 
-  // Cleanse each record with semantic validation
-  const cleansed = targetRows.map((row, idx) => {
-    const rawLead = mapRowToRawLead(row, idx);
-    return cleanseRecord(rawLead);
-  });
+  // Cleanse all records with non-blocking event-loop yields every 2,500 rows so the browser UI never freezes
+  const cleansed: CleansedRecord[] = [];
+  const CHUNK_SIZE = 2500;
+  for (let i = 0; i < targetRows.length; i++) {
+    if (i > 0 && i % CHUNK_SIZE === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    const rawLead = mapRowToRawLead(targetRows[i], i);
+    cleansed.push(cleanseRecord(rawLead));
+  }
 
-  // Multi-Vector Duplicate Clustering (Email, Phone+Name, Company/Entity)
+  // Multi-Vector Duplicate Clustering (Email, Phone+Name, Company/Entity) with O(1) index lookup
   const dupClusters = detectDuplicates(cleansed);
+  const byRecordId = new Map<string, CleansedRecord>();
+  for (const c of cleansed) {
+    byRecordId.set(c.record_id, c);
+  }
   for (const [clusterKey, ids] of dupClusters) {
     const isCompany = clusterKey.startsWith('company:');
     const isPhone = clusterKey.startsWith('phone_lastname:');
     const matchType = isCompany ? 'entity' : (isPhone ? 'phone_lastname' : 'email');
     const score = isCompany ? 97.5 : (isPhone ? 95.8 : 99.4);
 
-    const clusterRecs = ids.map((id) => cleansed.find((x) => x.record_id === id)).filter(Boolean) as CleansedRecord[];
+    const clusterRecs = ids.map((id) => byRecordId.get(id)).filter(Boolean) as CleansedRecord[];
     if (clusterRecs.length === 0) continue;
 
     // Identify Golden Master Record: prioritize legacy CRM (SF- or REC-), or earliest ingested

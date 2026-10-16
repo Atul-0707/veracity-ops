@@ -52,8 +52,7 @@ export default function App() {
           .from('data_records')
           .select('*')
           .eq('workspace_id', ws.id)
-          .eq('run_id', runs[0].id)
-          .limit(500);
+          .eq('run_id', runs[0].id);
 
         if (recs && recs.length > 0) {
           setRecords(recs);
@@ -85,7 +84,7 @@ export default function App() {
         await loadWorkspaceData(wsData);
         setView('portal');
       } else {
-        alert(`Workspace '/portal/${slug}' not found. Opening the free 500-record sandbox instead.`);
+        alert(`Workspace '/portal/${slug}' not found. Opening the Unlimited Client-Side Portal instead.`);
         openDemoSandbox();
       }
     } catch (err) {

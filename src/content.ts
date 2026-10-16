@@ -13,14 +13,12 @@ import {
   Network,
   Search,
   ShieldCheck,
-  Sparkles,
   Upload,
   Users,
   Workflow,
   Cpu,
   Fingerprint,
   RefreshCcw,
-  Zap,
   Sliders,
   DollarSign,
   type LucideIcon,
@@ -101,8 +99,8 @@ export const navItems: NavItem[] = [
     href: '#services',
     children: [
       { label: 'Dedup & Merge', href: '#services', description: 'Fellegi-Sunter entity resolution with 1-click undo', icon: Merge },
-      { label: 'Clean & Standardize', href: '#services', description: 'Sub-syntactic byte pre-wash and E.164 telecom normalizer', icon: Sparkles },
-      { label: 'Magical Import', href: '#services', description: 'Air-gapped staging sandbox & zero-config schema mapper', icon: Upload },
+      { label: 'Clean & Standardize', href: '#services', description: 'Sub-syntactic byte pre-wash and E.164 telecom normalizer', icon: Sliders },
+      { label: 'Schema Intake & Mapping', href: '#services', description: 'Air-gapped staging sandbox & zero-config schema mapper', icon: Upload },
       { label: 'Enrich & Segment', href: '#services', description: 'Waterfall arbitrage & dynamic ICP cohort routing', icon: Search },
     ],
   },
@@ -224,7 +222,7 @@ export const serviceFeatures: ServiceFeature[] = [
   {
     id: 'clean-standardize',
     tabLabel: '2. Clean & Standardize',
-    icon: Sparkles,
+    icon: Sliders,
     headline: 'Sub-Syntactic Pre-Ingestion Sanitization Engine',
     subheadline: 'Byte-Level Sanitization, E.164 Normalization, & The Two-Bucket Partition',
     problem:
@@ -294,15 +292,15 @@ export const serviceFeatures: ServiceFeature[] = [
     visual: 'clean',
   },
   {
-    id: 'magical-import',
-    tabLabel: '3. Magical Import',
+    id: 'schema-import',
+    tabLabel: '3. Schema Intake & Mapping',
     icon: Upload,
     headline: 'The Pre-Flight Ingestion Firewall',
     subheadline: 'Air-Gapped Staging Sandbox, AI Schema Mapping, & Ephemeral Zero-Storage',
     problem:
       'Uploading raw CSVs or vendor lists directly into a live CRM is an operational hazard. Mismatched column encodings, shifted delimiters, multi-line notes, and restricted picklist rejections often corrupt live data, reset routing queues, or silently drop thousands of leads.',
     solution:
-      'Veracity’s Magical Import acts as an air-gapped, zero-storage staging sandbox. It sits between unvetted external files and your production database. It autonomously detects schemas, aligns multi-line files, forks leads into Contacts, Accounts, and Deals, and intercepts errors into a Dead Letter Queue before a single byte reaches your live CRM.',
+      'Veracity’s Schema Ingestion Layer acts as an air-gapped, zero-storage staging sandbox. It sits between unvetted external files and your production database. It autonomously detects schemas, aligns multi-line files, forks leads into Contacts, Accounts, and Deals, and intercepts errors into a Dead Letter Queue before a single byte reaches your live CRM.',
     pipelineSteps: [
       { step: 'Byte Sniffer & Header Locator', detail: 'Scans rows 0-9 to find true header row, strips BOM, harmonizes encodings to UTF-8' },
       { step: 'Dual-Layer Schema Mapper', detail: 'Lexical alias ontology + semantic value-entropy fingerprinting across entire file' },
@@ -649,7 +647,7 @@ export const customSetupAddons = [
 export const foundingOffer = {
   hookHeadline: 'Full Engine Unlocked. Pay by Volume, Not Database Size.',
   hookBody:
-    'Every single plan includes 100% of our enterprise engine: Magical Import, Clean & Standardize, Multi-Vector Fuzzy Deduplication, Enrich & Segment, and Forensic Excel Workbooks. Zero feature gating.',
+    'Every single plan includes 100% of our enterprise engine: Schema Intake & Mapping, Clean & Standardize, Multi-Vector Fuzzy Deduplication, Enrich & Segment, and Forensic Excel Workbooks. Zero feature gating.',
   founderHeadline: 'Strict Cap: 10 Founding Member Licenses.',
   founderBody:
     'We are opening exactly 10 Founding Member licenses to partner closely with select RevOps teams and outbound agencies. Lock in our exclusive $99/mo rate for life, unlock 50,000 rows/month (a 20,000-row free bonus), and receive our $450 Enterprise Custom Setup Add-On completely free.',
@@ -743,15 +741,15 @@ export const infoZones: InfoZone[] = [
   },
   {
     id: 'cockpit',
-    badge: 'Coming Soon',
-    title: 'The Command Cockpit Is Being Engineered',
+    badge: 'Unlimited Scale & Air-Gap Architecture',
+    title: 'Zero File Size Restrictions. Zero Server Uploads.',
     description:
-      'The next frontier brings direct CRM integrations and visual control over your data operations. Founding members secure a lifetime upgrade from the Sentry Plan when the Cockpit launches.',
+      'Unlike typical web portals that cap uploads at 500 rows or upload sensitive customer spreadsheets to third-party clouds, Veracity executes 100% inside local browser RAM or your private Docker VPC appliance—with full CSV, 7-Tab Excel, and CRM Merge Script exports.',
     bullets: [
-      { text: 'Interactive Grid Studio visual editing', icon: Grid3X3 },
-      { text: 'Direct HubSpot and Salesforce push', icon: Network },
-      { text: 'Live CRM seed anti-collision guard', icon: ShieldCheck },
-      { text: 'Mass relational routing and orchestration', icon: Workflow },
+      { text: 'Unlimited file size in local RAM (no 500-row cap)', icon: Grid3X3 },
+      { text: '0 bytes uploaded to external servers (works offline)', icon: ShieldCheck },
+      { text: 'Salesforce SOAP merge() & HubSpot v3 reparenting', icon: Network },
+      { text: 'DuckDB vectorized engine & Air-Gap Docker appliance', icon: Workflow },
     ],
     visual: 'workflow',
   },

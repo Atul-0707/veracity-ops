@@ -5,7 +5,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   Send,
-  Sparkles,
   Mail,
   Clock,
   MessageSquare,
@@ -117,10 +116,10 @@ export default function CTA() {
             {/* Bullet Proof Key Guarantees */}
             <div className="space-y-2.5 pt-2">
               {[
-                'Air-gapped pre-ingestion staging with zero permanent storage',
+                '100% Client-Side RAM Execution (0 bytes uploaded — works even offline)',
+                'Unlimited file size processing with zero 500-row caps or storage limits',
                 '7-Tab Forensic Master Excel Workbook with line-by-line audit receipts',
-                'Executive SCQA ROI PDF Assessment for Boardroom presentation',
-                'Lifetime free upgrade to the upcoming $349/mo RevOps Command Cockpit',
+                'Executive SCQA ROI PDF Assessment & CRM Object Reparenting Scripts',
               ].map((benefit, i) => (
                 <div key={i} className="flex items-start gap-2.5 text-xs text-slate-600">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />

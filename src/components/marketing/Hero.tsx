@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles, CheckCircle2, Shield, Database, ArrowRightLeft, Cpu } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Shield, Database, ArrowRightLeft, Cpu } from 'lucide-react';
 import { brand, ecosystemTools } from '@/content';
 
 export default function Hero({ onOpenDemoSandbox }: { onOpenDemoSandbox?: () => void }) {
@@ -37,8 +37,7 @@ export default function Hero({ onOpenDemoSandbox }: { onOpenDemoSandbox?: () => 
               onClick={onOpenDemoSandbox}
               className="group inline-flex items-center gap-2.5 px-7 py-4 text-base font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 cursor-pointer"
             >
-              <Sparkles className="w-5 h-5 text-amber-300" />
-              Launch Sandbox Demo (500 Records)
+              Launch Client-Side Portal (Unlimited Rows • 0 Bytes Uploaded)
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
             <a
@@ -52,9 +51,9 @@ export default function Hero({ onOpenDemoSandbox }: { onOpenDemoSandbox?: () => 
           {/* Key Trust Guarantees */}
           <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-medium text-slate-500">
             {[
-              '100% In-Memory Execution (Zero PII Retained)',
-              'E.164 Phone & RFC Email Sanitation',
-              'RFC 6902 Constant-Time Rollback Ledger',
+              '100% Client-Side Browser RAM (0 Bytes Uploaded — Works Offline)',
+              'Unlimited File Size & 100% Full CSV / 7-Tab Excel Export',
+              'Universal E.164 Phones, Brand Case Protection & O(1) Dedup',
             ].map((item) => (
               <div key={item} className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -147,19 +146,19 @@ function PipelinePreview() {
             <h4 className="text-sm font-bold text-white">Veracity Deterministic Engine</h4>
             <ul className="text-xs text-slate-300 space-y-2 pt-1">
               <li className="flex items-center gap-2">
-                <span className="text-emerald-400 font-bold">✓</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span>Fuzzy match &amp; golden record merge</span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-emerald-400 font-bold">✓</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span>E.164 phone formatting (+44 / +1 / +91)</span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-emerald-400 font-bold">✓</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span>Name title casing &amp; catch-all flag</span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-emerald-400 font-bold">✓</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span>RFC 6902 reverse patch ledger</span>
               </li>
             </ul>

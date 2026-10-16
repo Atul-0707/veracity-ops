@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { Workspace, DataRecord } from '@/lib/types';
 import { updateEphemeralRecord } from '@/lib/sessionStore';
 import { groupRecordsIntoClusters } from '@/lib/engine';
-import { Users, Trophy, Archive, Building2, Mail, PhoneCall } from 'lucide-react';
+import { Users, ShieldCheck, Archive, Building2, Mail, PhoneCall } from 'lucide-react';
 
 interface DedupMatrixProps {
   workspace: Workspace;
@@ -98,7 +98,7 @@ export function DedupMatrix({ workspace: _workspace, records, onRefresh }: Dedup
         </div>
       ) : (
         <div className="space-y-5">
-          {clusters.map((cluster, ci) => {
+          {clusters.slice(0, 150).map((cluster, ci) => {
             const displayCluster = cluster.records.slice(0, 2);
 
             return (
@@ -231,7 +231,7 @@ export function DedupMatrix({ workspace: _workspace, records, onRefresh }: Dedup
                       }
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800 rounded-lg transition-colors shadow-2xs"
                     >
-                      <Trophy className="w-3.5 h-3.5 text-emerald-600" />
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                       Pick Record {String.fromCharCode(65 + ri)} ({rec.record_id}) as Golden Record
                     </button>
                   ))}

@@ -15,7 +15,12 @@ export interface RawLead {
   deal_arr?: string | number | null;
 }
 
-const DISPOSABLE_DOMAINS = ['test.test', 'mailinator.com', 'guerrillamail.com', 'tempmail.com', '10minutemail.com', 'yopmail.com', 'example.com'];
+const DISPOSABLE_DOMAINS = [
+  'test.test', 'mailinator.com', 'guerrillamail.com', 'tempmail.com',
+  '10minutemail.com', 'yopmail.com', 'example.com', 'trashmail.com',
+  'sharklasers.com', 'getnada.com', 'temp-mail.org', 'throwawaymail.com',
+  'maildrop.cc', 'fakeinbox.com', 'dispostable.com', 'mohmal.com'
+];
 const FAKE_PHONE_PATTERNS = [
   /^0+$/,
   /^9{7,}$/,
@@ -23,6 +28,7 @@ const FAKE_PHONE_PATTERNS = [
   /^5{7,}$/,
   /^12345/,
   /^1112223333$/,
+  /^5556667777$/,
   /^\d{1,6}$/
 ];
 const SENTINEL_VALUES = ['NULL', 'N/A', 'null', 'n/a', 'na', 'NA', '', 'TBD', 'tbd', '???', 'none', 'NONE', 'unknown', 'UNKNOWN'];
@@ -41,26 +47,99 @@ export function defangFormula(value: string | null | undefined): string | null {
   return value;
 }
 
+/**
+ * Universal Orthographic Digraph Phoneme Reduction:
+ * Collapses multi-letter consonant digraphs/trigraphs (szcz, rz, cz, sz, ch, sh, th, ph, sch, gh, ck, ng)
+ * into a single phoneme unit and treats 'y'/'w' + Nordic/Slavic diacritics as vocalic nuclei so
+ * legitimate international names (e.g. Przemysław, Krzysztof, Kierkegaard) are never false-flagged.
+ */
+function hasImpossibleConsonantCluster(word: string): boolean {
+  const normalized = word
+    .replace(/[łŁ]/g, 'l')
+    .replace(/[øØœŒæÆåÅäÄöÖüÜ]/g, 'a')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    // Split CamelCase boundaries before phoneme check
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase();
+
+  const tokens = normalized.split(/[^a-z]+/).filter(Boolean);
+  for (const tok of tokens) {
+    if (tok.length < 6) continue;
+    const reduced = tok
+      .replace(/szcz|tsch|sch/g, 'c')
+      .replace(/d[zźż]|rz|cz|sz|ch|sh|th|ph|gh|ck|ng|qu/g, 'c');
+    // Treat a, e, i, o, u, y, w as vocalic nuclei
+    if (/^[bcdfghjklmnpqrstvxz]{6,}$/.test(reduced)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function isDummyLead(val: string | null | undefined): boolean {
   if (!val) return false;
   const v = val.toLowerCase().trim();
   if (/^(asdf|qwerty|zxcv|1234|qwer|lkjh|poiu)/i.test(v)) return true;
-  if (/^[bcdfghjklmnpqrstvwxyz]{6,}$/i.test(v)) return true;
+  if (hasImpossibleConsonantCluster(val)) return true;
   if (v === 'test user' || v === 'test company' || v === 'tester') return true;
-  if (v.includes('mickey mouse')) return true;
+  if (v.includes('mickey mouse') || v.includes('donald duck') || v.includes('bruce wayne')) return true;
   return false;
 }
 
-function capitalizeName(name: string | null | undefined): string | null {
+const UPPERCASE_ACRONYMS = new Set([
+  'llc', 'llp', 'lp', 'inc', 'plc', 'corp', 'ltd', 'gmbh', 'ag', 'bv', 'nv', 'sa', 'sas', 'ab', 'oy', 'kk',
+  'ceo', 'cto', 'cfo', 'coo', 'cmo', 'cro', 'ciso', 'cio', 'cpo', 'vp', 'svp', 'evp', 'avp', 'md',
+  'it', 'ai', 'ml', 'hr', 'pr', 'qa', 'ui', 'ux', 'b2b', 'b2c', 'saas', 'paas', 'iaas', 'usa', 'uk', 'eu', 'uae'
+]);
+
+/**
+ * Universal Intrinsic Mixed-Case Preservation:
+ * Preserves tokens that already carry intentional mixed casing (e.g., eBay, iCloud, DevCommX, McDonald's, GmbH)
+ * while Title-Casing flat lowercase or flat UPPERCASE words and preserving standard corporate/title acronyms.
+ */
+function hasIntentionalMixedCase(token: string): boolean {
+  const alpha = token.replace(/[^a-zA-ZÀ-ÿ]/g, '');
+  if (alpha.length < 2) return false;
+  const isAllUpper = alpha === alpha.toUpperCase();
+  const isAllLower = alpha === alpha.toLowerCase();
+  if (isAllUpper || isAllLower) return false;
+  const isSimpleTitle =
+    alpha[0] === alpha[0].toUpperCase() &&
+    alpha.slice(1) === alpha.slice(1).toLowerCase();
+  return !isSimpleTitle;
+}
+
+export function capitalizeName(name: string | null | undefined): string | null {
   if (!name) return null;
-  const parts = name.trim().toLowerCase().split(/[\s_-]+/);
-  return parts
+  const rawParts = name.trim().split(/[\s_]+/);
+  return rawParts
     .map((p) => {
       if (p.length === 0) return p;
-      if (p.includes("'")) {
-        return p.replace(/([a-z])'([a-z])/g, (_, a, b) => `${a}'${b.toUpperCase()}`);
+      const cleanAlpha = p.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      if (UPPERCASE_ACRONYMS.has(cleanAlpha)) {
+        if (cleanAlpha === 'gmbh') return 'GmbH';
+        if (cleanAlpha === 'saas') return 'SaaS';
+        if (cleanAlpha === 'paas') return 'PaaS';
+        if (cleanAlpha === 'iaas') return 'IaaS';
+        return p.toUpperCase();
       }
-      return p.charAt(0).toUpperCase() + p.slice(1);
+      if (hasIntentionalMixedCase(p)) {
+        return p;
+      }
+      const lower = p.toLowerCase();
+      if (lower.includes("'")) {
+        return lower
+          .replace(/^([a-z])/, (_, c) => c.toUpperCase())
+          .replace(/([a-z])'([a-z])/g, (m, a, b) => (a === 'o' || a === 'd' || a === 'l' ? `${a.toUpperCase()}'${b.toUpperCase()}` : m));
+      }
+      if (lower.includes('-')) {
+        return lower
+          .split('-')
+          .map((seg) => (seg ? seg.charAt(0).toUpperCase() + seg.slice(1) : seg))
+          .join('-');
+      }
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
     })
     .join(' ');
 }
@@ -109,43 +188,56 @@ function defangEmail(email: string): string {
     .toLowerCase();
 }
 
-export function normalizePhone(phone: string): string {
+const COUNTRY_DIAL_MAP: Record<string, string> = {
+  US: '1', USA: '1', 'UNITED STATES': '1', CA: '1', CANADA: '1',
+  UK: '44', GB: '44', 'GREAT BRITAIN': '44', 'UNITED KINGDOM': '44', ENGLAND: '44',
+  DE: '49', GERMANY: '49', FR: '33', FRANCE: '33', ES: '34', SPAIN: '34',
+  IT: '39', ITALY: '39', NL: '31', NETHERLANDS: '31', CH: '41', SWITZERLAND: '41',
+  SE: '46', SWEDEN: '46', NO: '47', NORWAY: '47', DK: '45', DENMARK: '45',
+  PL: '48', POLAND: '48', IE: '353', IRELAND: '353', IN: '91', INDIA: '91',
+  AU: '61', AUSTRALIA: '61', NZ: '64', 'NEW ZEALAND': '64', JP: '81', JAPAN: '81',
+  SG: '65', SINGAPORE: '65', AE: '971', UAE: '971', BR: '55', BRAZIL: '55',
+  MX: '52', MEXICO: '52', ZA: '27', 'SOUTH AFRICA': '27'
+};
+
+export function normalizePhone(phone: string, countryHint?: string | null): string {
   const trimmed = phone.trim();
   if (isFakePhone(trimmed)) return '[PURGED]';
 
   const extMatch = trimmed.match(/(?:ext\.?|x|#|;)\s*(\d+)/i);
   const ext = extMatch ? extMatch[1] : null;
-  const baseOnly = trimmed.split(/(?:ext\.?|x|#|;)/i)[0].trim();
+  let baseOnly = trimmed.split(/(?:ext\.?|x|#|;)/i)[0].trim();
+
+  // Strip national trunk '(0)' after international prefix e.g. '+44 (0) 20...'
+  baseOnly = baseOnly.replace(/^\+\s*(\d{1,3})\s*\(0\)\s*/, '+$1 ');
 
   let cleaned = baseOnly.replace(/[^0-9+]/g, '');
-  if (cleaned.length < 7) return '[PURGED]';
-
-  // European leading 0 trunk handling
-  if (baseOnly.startsWith('+44 (0)') || baseOnly.startsWith('+44(0)')) {
-    cleaned = '44' + cleaned.replace(/^\+?440?/, '');
-  } else if (baseOnly.startsWith('+49 (0)') || baseOnly.startsWith('+49(0)')) {
-    cleaned = '49' + cleaned.replace(/^\+?490?/, '');
-  } else if (trimmed.startsWith('0') && cleaned.length === 11) {
-    cleaned = '44' + cleaned.slice(1);
-  } else {
-    cleaned = cleaned.replace(/^\+([0-9]{2,3})0([0-9]+)$/, '+$1$2');
+  if (cleaned.startsWith('00')) {
+    cleaned = '+' + cleaned.slice(2);
   }
+  const digitsOnly = cleaned.replace(/\D/g, '');
+  if (digitsOnly.length < 7 || digitsOnly.length > 15) return '[PURGED]';
+
+  const hintKey = (countryHint || 'US').trim().toUpperCase();
+  const dialCode = COUNTRY_DIAL_MAP[hintKey] || '1';
 
   let formatted = '';
-  if (cleaned.startsWith('+1')) {
-    formatted = `+1 ${cleaned.slice(2, 5)} ${cleaned.slice(5, 8)} ${cleaned.slice(8)}`;
-  } else if (cleaned.startsWith('1') && cleaned.length === 11) {
-    formatted = `+1 ${cleaned.slice(1, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7)}`;
-  } else if (cleaned.length === 10) {
-    formatted = `+1 ${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
-  } else if (cleaned.startsWith('0') && cleaned.length === 11) {
-    formatted = `+44 ${cleaned.slice(1)}`;
-  } else if (cleaned.startsWith('44') && cleaned.length >= 11) {
-    formatted = `+44 ${cleaned.slice(2)}`;
+  if (cleaned.startsWith('+1') && digitsOnly.length === 11) {
+    formatted = `+1 ${digitsOnly.slice(1, 4)} ${digitsOnly.slice(4, 7)} ${digitsOnly.slice(7)}`;
+  } else if (cleaned.startsWith('1') && digitsOnly.length === 11 && dialCode === '1') {
+    formatted = `+1 ${digitsOnly.slice(1, 4)} ${digitsOnly.slice(4, 7)} ${digitsOnly.slice(7)}`;
+  } else if (!cleaned.startsWith('+') && digitsOnly.length === 10 && dialCode === '1') {
+    formatted = `+1 ${digitsOnly.slice(0, 3)} ${digitsOnly.slice(3, 6)} ${digitsOnly.slice(6)}`;
+  } else if (cleaned.startsWith('+44') || (dialCode === '44' && cleaned.startsWith('0') && digitsOnly.length >= 10)) {
+    const nat = cleaned.startsWith('+44') ? digitsOnly.slice(2).replace(/^0/, '') : digitsOnly.replace(/^0/, '');
+    formatted = `+44 ${nat}`;
+  } else if (!cleaned.startsWith('+') && dialCode !== '1') {
+    const nat = digitsOnly.startsWith(dialCode) ? digitsOnly.slice(dialCode.length) : digitsOnly.replace(/^0/, '');
+    formatted = `+${dialCode} ${nat}`;
   } else if (cleaned.startsWith('+')) {
     formatted = cleaned;
   } else {
-    formatted = `+${cleaned}`;
+    formatted = `+${digitsOnly}`;
   }
 
   return ext ? `${formatted} ext ${ext}` : formatted;
@@ -207,17 +299,44 @@ function stripZeroWidthBytes(value: string | null | undefined): string {
     .trim();
 }
 
-const FREEMAIL_DOMAINS = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com', 'mail.com'];
+const FREEMAIL_DOMAINS = [
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com',
+  'aol.com', 'mail.com', 'protonmail.com', 'proton.me', 'zoho.com', 'gmx.com', 'yandex.com', 'live.com', 'msn.com'
+];
 
-export function extractDomain(email: string | null | undefined): string | null {
-  if (!email || !email.includes('@')) return null;
-  const parts = email.split('@');
-  return parts[1] ? parts[1].toLowerCase().trim() : null;
+const MULTI_PART_TLDS = new Set([
+  'co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'com.au', 'net.au', 'org.au',
+  'co.in', 'net.in', 'org.in', 'co.jp', 'ne.jp', 'or.jp', 'com.br',
+  'com.mx', 'com.sg', 'co.nz', 'co.za', 'com.cn', 'com.hk', 'com.tw'
+]);
+
+export function extractDomain(emailOrUrl: string | null | undefined): string | null {
+  if (!emailOrUrl) return null;
+  let host = emailOrUrl.trim().toLowerCase();
+  if (host.includes('@')) {
+    host = host.split('@').pop() || '';
+  } else {
+    host = host.replace(/^https?:\/\//i, '').split('/')[0].split('?')[0];
+  }
+  host = host.replace(/^www\./i, '').replace(/\.$/, '').trim();
+  if (!host || !host.includes('.')) return null;
+
+  const parts = host.split('.');
+  if (parts.length >= 3) {
+    const lastTwo = `${parts[parts.length - 2]}.${parts[parts.length - 1]}`;
+    if (MULTI_PART_TLDS.has(lastTwo)) {
+      return `${parts[parts.length - 3]}.${lastTwo}`;
+    }
+    return `${parts[parts.length - 2]}.${parts[parts.length - 1]}`;
+  }
+  return host;
 }
 
 export function inferCompanyFromDomain(domain: string | null | undefined): string | null {
-  if (!domain || FREEMAIL_DOMAINS.includes(domain)) return null;
-  const mainPart = domain.split('.')[0];
+  if (!domain) return null;
+  const regDomain = extractDomain(domain) || domain.toLowerCase();
+  if (FREEMAIL_DOMAINS.includes(regDomain) || DISPOSABLE_DOMAINS.includes(regDomain)) return null;
+  const mainPart = regDomain.split('.')[0];
   if (!mainPart || mainPart.length < 2) return null;
   return capitalizeName(mainPart);
 }
@@ -395,7 +514,7 @@ export function cleanseRecord(raw: RawLead): CleansedRecord {
         flags.push('FAKE_PHONE_SCRUBBED');
       }
     } else {
-      phoneClean = normalizePhone(phone);
+      phoneClean = normalizePhone(phone, country);
       if (phoneClean === '[PURGED]') {
         phoneClean = null;
         flags.push('INVALID_PHONE');
@@ -574,6 +693,11 @@ export function detectDuplicates(records: CleansedRecord[]): Map<string, string[
     }
   }
 
+  const byRecId = new Map<string, CleansedRecord>();
+  for (const r of records) {
+    byRecId.set(r.record_id, r);
+  }
+
   const visited = new Set<string>();
   const clusters = new Map<string, string[]>();
   let clusterIdx = 1;
@@ -594,8 +718,8 @@ export function detectDuplicates(records: CleansedRecord[]): Map<string, string[
         }
       }
       if (comp.length > 1) {
-        const recs = comp.map(rid => records.find(x => x.record_id === rid)).filter(Boolean) as CleansedRecord[];
-        const emailRec = recs.find(x => x.email_clean);
+        const recs = comp.map((rid) => byRecId.get(rid)).filter(Boolean) as CleansedRecord[];
+        const emailRec = recs.find((x) => x.email_clean);
         const clusterKey = emailRec?.email_clean ? `email:${emailRec.email_clean}` : `cluster:${clusterIdx++}`;
         clusters.set(clusterKey, comp);
       }
@@ -616,7 +740,11 @@ export interface ClusterGroup {
 export function groupRecordsIntoClusters(records: DataRecord[]): ClusterGroup[] {
   const clusters: ClusterGroup[] = [];
   const adj = new Map<string, Set<string>>();
-  records.forEach((r) => adj.set(r.id, new Set<string>()));
+  const byId = new Map<string, DataRecord>();
+  records.forEach((r) => {
+    adj.set(r.id, new Set<string>());
+    byId.set(r.id, r);
+  });
 
   const addEdge = (id1: string, id2: string) => {
     if (id1 === id2) return;
@@ -634,10 +762,8 @@ export function groupRecordsIntoClusters(records: DataRecord[]): ClusterGroup[] 
     }
   }
   for (const [, ids] of byEmail) {
-    for (let i = 0; i < ids.length; i++) {
-      for (let j = i + 1; j < ids.length; j++) {
-        addEdge(ids[i], ids[j]);
-      }
+    for (let i = 1; i < ids.length; i++) {
+      addEdge(ids[0], ids[i]);
     }
   }
 
@@ -652,10 +778,8 @@ export function groupRecordsIntoClusters(records: DataRecord[]): ClusterGroup[] 
     }
   }
   for (const [, ids] of byPhoneLast) {
-    for (let i = 0; i < ids.length; i++) {
-      for (let j = i + 1; j < ids.length; j++) {
-        addEdge(ids[i], ids[j]);
-      }
+    for (let i = 1; i < ids.length; i++) {
+      addEdge(ids[0], ids[i]);
     }
   }
 
@@ -673,10 +797,8 @@ export function groupRecordsIntoClusters(records: DataRecord[]): ClusterGroup[] 
     }
   }
   for (const [, ids] of byNameComp) {
-    for (let i = 0; i < ids.length; i++) {
-      for (let j = i + 1; j < ids.length; j++) {
-        addEdge(ids[i], ids[j]);
-      }
+    for (let i = 1; i < ids.length; i++) {
+      addEdge(ids[0], ids[i]);
     }
   }
 
@@ -698,11 +820,11 @@ export function groupRecordsIntoClusters(records: DataRecord[]): ClusterGroup[] 
         }
       }
       if (compIds.length > 1) {
-        const groupRecs = compIds.map(cid => records.find(x => x.id === cid)).filter(Boolean) as DataRecord[];
+        const groupRecs = compIds.map((cid) => byId.get(cid)).filter(Boolean) as DataRecord[];
         const name = groupRecs[0].first_name_clean
           ? `${groupRecs[0].first_name_clean} ${groupRecs[0].last_name_clean || ''}`.trim()
           : (groupRecs[0].company_clean || 'Duplicate Group');
-        const hasEmailMatch = groupRecs.filter(x => x.email_clean).length > 1;
+        const hasEmailMatch = groupRecs.filter((x) => x.email_clean).length > 1;
         const matchType = hasEmailMatch ? 'email' : 'phone_lastname';
         const score = hasEmailMatch ? 99.4 : 95.8;
         clusters.push({

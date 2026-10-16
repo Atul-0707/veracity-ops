@@ -39,7 +39,7 @@ export function QuarantineStewardship({ workspace: _workspace, records, onRowCli
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {quarantined.map((r) => {
+          {quarantined.slice(0, 200).map((r) => {
             const b = triageBadge(r.triage_status);
             return (
               <div

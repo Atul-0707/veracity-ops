@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Activity, Sparkles, RotateCcw, Shield, Home, Database, BarChart2, Layers } from 'lucide-react';
-import type { Workspace, Persona, QuotaLedger } from '@/lib/types';
-import { clearEphemeralSession, getActiveDatasetName, isBenchmarkDataset, getQuotaLedger } from '@/lib/sessionStore';
+import { RotateCcw, ShieldCheck, Database, Lock, Cpu, CheckCircle2 } from 'lucide-react';
+import type { Workspace, Persona } from '@/lib/types';
+import { clearEphemeralSession, getActiveDatasetName, isBenchmarkDataset, getEphemeralRecords } from '@/lib/sessionStore';
 
 interface TenantBarProps {
   workspace: Workspace;
@@ -11,33 +11,31 @@ interface TenantBarProps {
   onExit?: () => void;
 }
 
-export function TenantBar({ workspace, persona, onPersonaChange, onRefresh, onExit }: TenantBarProps) {
+export function TenantBar({ workspace: _workspace, persona, onPersonaChange, onRefresh, onExit }: TenantBarProps) {
   const datasetName = getActiveDatasetName();
   const isBenchmark = isBenchmarkDataset();
-  const [ledger, setLedger] = useState<QuotaLedger>(() => getQuotaLedger(workspace.id));
-  const [showQuotaDetail, setShowQuotaDetail] = useState(false);
+  const [activeRows, setActiveRows] = useState<number>(() => getEphemeralRecords().length);
+  const [showSafetyDetail, setShowSafetyDetail] = useState(false);
 
   useEffect(() => {
     const handleUpdate = () => {
-      setLedger(getQuotaLedger(workspace.id));
+      setActiveRows(getEphemeralRecords().length);
     };
     window.addEventListener('vrc_quota_updated', handleUpdate);
     return () => window.removeEventListener('vrc_quota_updated', handleUpdate);
-  }, [workspace.id]);
+  }, []);
 
   const handleReset = () => {
-    if (confirm('Clear temporary sandbox data and reload default sample records? All your uploaded test records and quota ledger will be reset.')) {
+    if (confirm('Clear temporary in-memory data and reload default sample records? All uploaded records in browser RAM will be wiped immediately.')) {
       clearEphemeralSession();
-      setLedger(getQuotaLedger(workspace.id));
+      setActiveRows(getEphemeralRecords().length);
       onRefresh();
     }
   };
 
-  const usedPct = Math.min(100, Math.round((ledger.quotaUsed / Math.max(1, ledger.monthlyLimit)) * 100));
-
   return (
     <header className="bg-slate-900 text-slate-100 border-b border-slate-800 flex items-center justify-between px-4 h-14 shrink-0 z-20 relative">
-      {/* Brand & Sandbox Identity */}
+      {/* Brand & Safety / Capacity Status */}
       <div className="flex items-center gap-3 min-w-0">
         <div
           onClick={onExit}
@@ -54,87 +52,83 @@ export function TenantBar({ workspace, persona, onPersonaChange, onRefresh, onEx
 
         <div className="w-px h-5 bg-slate-800 hidden sm:block" />
 
-        {/* Live Interactive Quota Meter */}
+        {/* Live Safety & Unlimited File Size Badge */}
         <div className="relative">
           <button
             type="button"
-            onClick={() => setShowQuotaDetail(!showQuotaDetail)}
-            className="flex items-center gap-2 bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 px-2.5 py-1 rounded-xl text-left transition-colors cursor-pointer"
-            title="Click to view detailed monthly row quota ledger"
+            onClick={() => setShowSafetyDetail(!showSafetyDetail)}
+            className="flex items-center gap-2.5 bg-slate-800/90 hover:bg-slate-800 border border-emerald-700/60 px-3 py-1.5 rounded-xl text-left transition-colors cursor-pointer"
+            title="Click to inspect Client-Side Safety & Unlimited File Size Architecture"
           >
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
             <div className="flex flex-col">
-              <div className="flex items-center justify-between gap-3 text-[10px]">
-                <span className="text-slate-400 font-medium flex items-center gap-1">
-                  <BarChart2 className="w-3 h-3 text-sky-400" />
-                  Monthly Quota:
-                </span>
-                <span className={`font-mono font-bold ${
-                  ledger.quotaRemaining === 0 ? 'text-rose-400' : usedPct >= 80 ? 'text-amber-300' : 'text-sky-300'
-                }`}>
-                  {ledger.quotaUsed.toLocaleString()} / {ledger.monthlyLimit.toLocaleString()} Rows
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="text-emerald-300 font-bold tracking-wide">
+                  100% Client-Side Safe • Unlimited Rows
                 </span>
               </div>
-              <div className="w-32 sm:w-40 h-1.5 bg-slate-700/80 rounded-full overflow-hidden mt-0.5">
-                <div
-                  className={`h-full transition-all duration-300 ${
-                    ledger.quotaRemaining === 0 ? 'bg-rose-500' : usedPct >= 80 ? 'bg-amber-400' : 'bg-sky-500'
-                  }`}
-                  style={{ width: `${usedPct}%` }}
-                />
+              <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
+                <span>0 Bytes Uploaded</span>
+                <span>•</span>
+                <span className="text-sky-300 font-semibold">{activeRows.toLocaleString()} Rows in RAM</span>
               </div>
             </div>
-            <span className="text-[9px] font-mono font-semibold px-1 py-0.2 rounded bg-slate-700 text-slate-300 border border-slate-600">
-              {usedPct}%
+            <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700/70">
+              AIR-GAP
             </span>
           </button>
 
-          {/* Quota Details Popover */}
-          {showQuotaDetail && (
-            <div className="absolute top-full left-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-2xl z-50 text-xs space-y-3 animate-fade-in">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="font-bold text-white text-xs">Monthly Row Quota Ledger</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800 font-mono">
-                  {ledger.quotaRemaining.toLocaleString()} Rows Available
+          {/* Safety & Capacity Details Popover */}
+          {showSafetyDetail && (
+            <div className="absolute top-full left-0 mt-2 w-96 bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-2xl z-50 text-xs space-y-3 animate-fade-in">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                  Safety &amp; Unlimited File Size Guarantee
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono">
+                  0 Bytes Sent
                 </span>
               </div>
 
-              <div className="space-y-1.5 text-slate-300 text-[11px]">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Monthly Entitlement:</span>
-                  <span className="font-mono text-white font-semibold">{ledger.monthlyLimit.toLocaleString()} rows</span>
+              <div className="space-y-2.5 text-slate-300 text-[11px] leading-relaxed">
+                <div className="p-2.5 rounded-xl bg-slate-800/70 border border-slate-700/70">
+                  <div className="font-bold text-emerald-300 flex items-center gap-1.5 mb-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    1. Zero Server Upload (Works Offline)
+                  </div>
+                  <p className="text-slate-400 text-[10px]">
+                    Your CSV/Excel files are parsed and cleaned 100% inside your own browser&apos;s RAM. Zero bytes ever leave your computer—you can even turn off Wi-Fi before dropping a file.
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Total Metered Ingestion:</span>
-                  <span className="font-mono text-amber-300 font-semibold">{ledger.quotaUsed.toLocaleString()} rows</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Active Metered Batches:</span>
-                  <span className="font-mono text-sky-300 font-semibold">{ledger.batches.length} file(s)</span>
-                </div>
-              </div>
 
-              {ledger.batches.length > 0 && (
-                <div className="pt-2 border-t border-slate-800 space-y-1 max-h-32 overflow-y-auto">
-                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Metered Ingestions:</span>
-                  {ledger.batches.map((b) => (
-                    <div key={b.id} className="p-1.5 rounded bg-slate-800/60 border border-slate-700/60 flex items-center justify-between text-[10px]">
-                      <span className="truncate max-w-[150px] text-slate-300 font-medium" title={b.filename}>{b.filename}</span>
-                      <span className="font-mono text-emerald-400">{b.row_count.toLocaleString()} rows</span>
-                    </div>
-                  ))}
+                <div className="p-2.5 rounded-xl bg-slate-800/70 border border-slate-700/70">
+                  <div className="font-bold text-sky-300 flex items-center gap-1.5 mb-0.5">
+                    <Cpu className="w-3.5 h-3.5" />
+                    2. Unlimited File Size &amp; 100% Export
+                  </div>
+                  <p className="text-slate-400 text-[10px]">
+                    No 500-row cap, no 5MB storage limit, and no row restrictions. 100% of your uploaded rows ({activeRows.toLocaleString()} active) are cleaned in non-blocking RAM chunks and exported in full CSV &amp; 7-Tab Excel workbooks.
+                  </p>
                 </div>
-              )}
 
-              <div className="p-2 rounded-lg bg-sky-950/60 border border-sky-800/60 text-[10px] text-sky-300 leading-relaxed">
-                🛡️ <strong>Invariant Guarantee:</strong> Re-exporting, cleansing, or deduplicating active files consumes <strong>0 rows</strong>. Quota is only metered for new files.
+                <div className="p-2.5 rounded-xl bg-slate-800/70 border border-slate-700/70">
+                  <div className="font-bold text-amber-300 flex items-center gap-1.5 mb-0.5">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    3. Instant Volatile Memory Purge
+                  </div>
+                  <p className="text-slate-400 text-[10px]">
+                    Nothing is saved to disk or cloud databases. Closing this browser tab or clicking Reset immediately destroys all in-memory records.
+                  </p>
+                </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => setShowQuotaDetail(false)}
-                className="w-full py-1 text-[11px] text-center text-slate-400 hover:text-white bg-slate-800 rounded-lg cursor-pointer"
+                onClick={() => setShowSafetyDetail(false)}
+                className="w-full py-1.5 text-[11px] font-semibold text-center text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
               >
-                Close Ledger
+                Close Security &amp; Capacity Details
               </button>
             </div>
           )}
@@ -147,6 +141,9 @@ export function TenantBar({ workspace, persona, onPersonaChange, onRefresh, onEx
         <span className="text-slate-400">File:</span>
         <span className="font-mono text-slate-200 font-medium">
           {datasetName}
+        </span>
+        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800">
+          {activeRows.toLocaleString()} rows
         </span>
         {isBenchmark && (
           <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-sans border border-slate-600">

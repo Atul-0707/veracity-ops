@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Layers, Globe, Building2, UserCheck, Briefcase, FileSpreadsheet, Sparkles, Filter, ChevronRight } from 'lucide-react';
+import { Layers, Globe, Building2, UserCheck, Briefcase, FileSpreadsheet, Filter, ChevronRight } from 'lucide-react';
 import type { Workspace, DataRecord } from '@/lib/types';
 import { downloadCleanedMasterExcel } from '@/lib/exportExcel';
 

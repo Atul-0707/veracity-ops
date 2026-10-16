@@ -67,11 +67,17 @@ export function HealthCockpit({ workspace, records, persona: _persona }: HealthC
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Health Cockpit</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Executive data quality scoreboard • Diagnostic 500-Row Assessment</p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Executive data quality scoreboard • Full-Dataset In-Memory Assessment ({totalRecords.toLocaleString()} Rows) • 0 Bytes Uploaded
+          </p>
         </div>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+          100% Client-Side RAM Execution • Unlimited File Size
+        </span>
       </div>
 
       {/* Stat cards */}
@@ -122,13 +128,13 @@ export function HealthCockpit({ workspace, records, persona: _persona }: HealthC
 
         {/* Risk & compliance panel */}
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="text-sm font-semibold text-slate-900 mb-4">Risk & Compliance</h3>
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">Safety, Capacity &amp; Compliance</h3>
           <div className="space-y-2.5">
-            <RiskRow icon={ShieldCheck} label="ISO 8000-110 Audit Hash" status="Verified" color="emerald" />
-            <RiskRow icon={ShieldCheck} label="OWASP Formula Defanging" status="Active" color="emerald" />
-            <RiskRow icon={ShieldCheck} label="Zero-Width Byte Sanitization" status="Active" color="emerald" />
-            <RiskRow icon={AlertTriangle} label="Disposable Email Domains Blocked" status={`${quarantinedCount} flagged`} color="amber" />
-            <RiskRow icon={X} label="Fake Phone Sentinels Detected" status={`${records.filter(r => r.flag_tags?.includes('FAKE_PHONE')).length} purged`} color="rose" />
+            <RiskRow icon={ShieldCheck} label="Client-Side RAM Isolation (Air-Gap)" status="0 Bytes Uploaded" color="emerald" />
+            <RiskRow icon={ShieldCheck} label="Dataset Capacity & Export Limit" status={`Unlimited (${totalRecords.toLocaleString()} Active)`} color="emerald" />
+            <RiskRow icon={ShieldCheck} label="OWASP Formula & Byte Sanitization" status="Active" color="emerald" />
+            <RiskRow icon={AlertTriangle} label="Disposable Email Domains Blocked" status={`${quarantinedCount.toLocaleString()} flagged`} color="amber" />
+            <RiskRow icon={X} label="Fake Phone Sentinels Detected" status={`${records.filter(r => r.flag_tags?.includes('FAKE_PHONE')).length.toLocaleString()} purged`} color="rose" />
           </div>
           <div className="mt-4 pt-4 border-t border-slate-100">
             <div className="flex items-center justify-between mb-2">

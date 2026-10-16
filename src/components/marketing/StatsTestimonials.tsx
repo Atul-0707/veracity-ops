@@ -1,5 +1,5 @@
 import { testimonials } from '@/content';
-import { Star, Quote } from 'lucide-react';
+import { Quote } from 'lucide-react';
 
 export default function StatsTestimonials() {
   return (
@@ -8,10 +8,8 @@ export default function StatsTestimonials() {
       <section id="cases" className="py-24 lg:py-32 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <div className="flex items-center justify-center gap-1 mb-4">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="w-5 h-5 fill-warning-500 text-warning-500" />
-              ))}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 uppercase tracking-wider mb-4">
+              Enterprise RevOps Validation
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900">
               Designed for <span className="gradient-text">RevOps Confidence</span>

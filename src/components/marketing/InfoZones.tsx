@@ -1,4 +1,4 @@
-import { Workflow, BarChart3, Zap, ShieldCheck, Clock, Network, Filter, FileSpreadsheet, Globe, Lock, Users, Bell, Sparkles } from 'lucide-react';
+import { Workflow, BarChart3, ShieldCheck, Clock, Network, Filter, FileSpreadsheet, Globe, Lock, Users, Bell, Layers } from 'lucide-react';
 import { infoZones, type InfoZone } from '@/content';
 
 function ZoneVisual({ type }: { type: InfoZone['visual'] }) {
@@ -21,7 +21,7 @@ function WorkflowVisual() {
     { label: 'Scan', icon: Filter, color: 'bg-primary-500' },
     { label: 'Deduplicate', icon: Users, color: 'bg-primary-600' },
     { label: 'Merge', icon: Workflow, color: 'bg-accent-500' },
-    { label: 'Enrich', icon: Sparkles, color: 'bg-accent-600' },
+    { label: 'Enrich', icon: Layers, color: 'bg-accent-600' },
   ];
   return (
     <div className="relative p-6 bg-white rounded-2xl border border-slate-200 shadow-card">

@@ -1,4 +1,4 @@
-import { Zap, Gauge, UploadCloud, Sparkles, Users, Layers, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileSpreadsheet, Gauge, UploadCloud, CheckCheck, Users, Layers, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ModuleId } from '@/lib/types';
 
 interface ModuleRailProps {
@@ -24,7 +24,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'EXPRESS WORKSPACE',
     items: [
-      { id: 'instant', label: 'Instant Lead Scrub', icon: Zap, description: '1-click drop & clean CSV' },
+      { id: 'instant', label: 'Instant Lead Scrub', icon: FileSpreadsheet, description: '1-click drop & clean CSV' },
       { id: 'health', label: 'Health Scoreboard', icon: Gauge, description: 'Executive scoreboard & ROI' },
     ],
   },
@@ -32,7 +32,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: '4-STEP PIPELINE',
     items: [
       { id: 'import', label: '1. Schema & Field Mapper', icon: UploadCloud, description: 'CSV/Excel auto-mapping' },
-      { id: 'cleanse', label: '2. Clean & Standardize', icon: Sparkles, description: 'Phone, email, syntax scrub' },
+      { id: 'cleanse', label: '2. Clean & Standardize', icon: CheckCheck, description: 'Phone, email, syntax scrub' },
       { id: 'dedupe', label: '3. Merge Duplicates', icon: Users, description: 'Fuzzy match & golden record' },
       { id: 'enrich', label: '4. Enrich & Segment', icon: Layers, description: 'Domain linking & ICP tiers' },
     ],

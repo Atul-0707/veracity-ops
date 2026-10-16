@@ -57,7 +57,7 @@ export default function Footer() {
               </li>
               <li>
                 <a href="#services" className="hover:text-white transition-colors">
-                  Magical Import
+                  Schema Intake &amp; Mapping
                 </a>
               </li>
               <li>

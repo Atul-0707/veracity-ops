@@ -73,7 +73,7 @@ export function RecordDrawer({ record, onClose }: RecordDrawerProps) {
                     {changed ? (
                       <div className="flex flex-col gap-0.5">
                         <span className="text-xs diff-strike text-rose-500 font-mono">{f.raw}</span>
-                        <span className="text-xs text-emerald-700 font-mono font-medium">{f.clean} ✓</span>
+                        <span className="text-xs text-emerald-700 font-mono font-medium">{f.clean}</span>
                       </div>
                     ) : (
                       <span className="text-xs text-slate-700 font-mono">{f.clean || f.raw || '—'}</span>

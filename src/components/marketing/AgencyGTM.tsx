@@ -1,5 +1,5 @@
 import { agencyGtmContent } from '@/content';
-import { Layers, ShieldCheck, Zap, ArrowRight, Database } from 'lucide-react';
+import { Layers, ShieldCheck, ArrowRight, Database } from 'lucide-react';
 
 export default function AgencyGTM({ onOpenDemoSandbox }: { onOpenDemoSandbox?: () => void }) {
   return (
@@ -53,7 +53,7 @@ export default function AgencyGTM({ onOpenDemoSandbox }: { onOpenDemoSandbox?: (
         <div className="mt-12 p-8 rounded-2xl bg-slate-900 text-white flex flex-col lg:flex-row items-center justify-between gap-6 shadow-md">
           <div className="space-y-1.5 text-center lg:text-left">
             <div className="flex items-center justify-center lg:justify-start gap-2 text-xs font-bold uppercase tracking-wider text-primary-400">
-              <Zap className="w-4 h-4 text-amber-400" />
+              <Layers className="w-4 h-4 text-sky-400" />
               Agency &amp; Retainer White-Label Model
             </div>
             <h4 className="text-xl font-bold text-white">

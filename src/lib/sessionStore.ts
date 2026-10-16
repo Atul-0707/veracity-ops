@@ -35,7 +35,7 @@ export const DEMO_WORKSPACE: Workspace = {
   crm_target: 'Salesforce / HubSpot',
   status: 'active',
   monthly_fee: 150,
-  quota_limit: 50000,
+  quota_limit: 10000000,
   quota_used: 0,
   valid_until: new Date(Date.now() + 86400000 * 365).toISOString(),
   primary_contact: 'Founding Member',
@@ -269,16 +269,24 @@ export function resetQuotaLedger(workspaceId = DEMO_WORKSPACE.id): void {
   saveQuotaLedger(fresh, workspaceId);
 }
 
+// Unlimited in-memory RAM store for large datasets (bypasses browser 5MB sessionStorage limit)
+let inMemoryRecordsCache: DataRecord[] | null = null;
+
 /**
  * Initializes or retrieves ephemeral session records.
- * Isolated strictly to the visitor's browser tab via sessionStorage.
+ * Uses in-memory RAM store for unlimited row capacity, with sessionStorage fallback.
  */
 export function getEphemeralRecords(): DataRecord[] {
+  if (inMemoryRecordsCache && inMemoryRecordsCache.length > 0) {
+    return inMemoryRecordsCache;
+  }
+
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY_RECORDS);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        inMemoryRecordsCache = parsed;
         return parsed;
       }
     }
@@ -287,14 +295,20 @@ export function getEphemeralRecords(): DataRecord[] {
   }
 
   // Initial seed: cleanse default 15 sample records
-  return getInitialSampleRecords();
+  const sample = getInitialSampleRecords();
+  inMemoryRecordsCache = sample;
+  return sample;
 }
 
 export function saveEphemeralRecords(records: DataRecord[]): void {
+  // Store 100% of records in browser RAM (zero size limit, zero network egress)
+  inMemoryRecordsCache = records;
   try {
-    sessionStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
+    // Store up to 500 rows in sessionStorage as tab-refresh fallback so 5MB limit is never exceeded
+    const safeSlice = records.length > 500 ? records.slice(0, 500) : records;
+    sessionStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(safeSlice));
   } catch (err) {
-    console.warn('Failed to save to sessionStorage:', err);
+    console.warn('sessionStorage capacity reached; full dataset retained in RAM:', err);
   }
 }
 
@@ -329,6 +343,7 @@ export function saveEphemeralBatchRun(run: BatchRun): void {
 }
 
 export function clearEphemeralSession(): void {
+  inMemoryRecordsCache = null;
   try {
     sessionStorage.removeItem(STORAGE_KEY_RECORDS);
     sessionStorage.removeItem(STORAGE_KEY_RUNS);

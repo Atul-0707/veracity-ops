@@ -27,7 +27,8 @@ function applyErgonomics(ws: XLSX.WorkSheet, aoa: any[][]): void {
   ws['!cols'] = colWidths;
 
   const rowHeights: { hpt: number }[] = [{ hpt: 28 }];
-  for (let r = 1; r < aoa.length; r++) {
+  const maxHeightRows = Math.min(aoa.length, 2000);
+  for (let r = 1; r < maxHeightRows; r++) {
     rowHeights.push({ hpt: 20 });
   }
   ws['!rows'] = rowHeights;
@@ -59,7 +60,7 @@ export function downloadCleanedMasterExcel(
   const kpiData: any[][] = [
     ['ISO 8000-110 CRYPTOGRAPHIC VERIFICATION SEAL: SHA-256 a7f92e448b11c902bdf6c1e3894451fa2', 'AUDIT RECORD IMMUTABLE'],
     ['ENTERPRISE DATA INTELLIGENCE & CRM ACTIVATION REPORT', 'EXECUTIVE CFO SUMMARY'],
-    ['TARGET CRM STATUS:', cleanRecords.length > 0 ? '[✓] APPROVED FOR IMPORT' : '[!] QUARANTINE REVIEW REQUIRED'],
+    ['TARGET CRM STATUS:', cleanRecords.length > 0 ? '[PASSED] APPROVED FOR IMPORT' : '[WARNING] QUARANTINE REVIEW REQUIRED'],
     ['Client Organization:', workspaceName],
     ['Run Timestamp (UTC):', new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC'],
     ['Total Records Ingested:', records.length],

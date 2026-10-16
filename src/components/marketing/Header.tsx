@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Menu, X, ChevronDown, ArrowRight, Sparkles } from 'lucide-react';
+import { Menu, X, ChevronDown, ArrowRight, ShieldCheck } from 'lucide-react';
 import { brand, navItems, type NavItem } from '@/content';
 
 function NavDropdown({ item, onNavigate }: { item: NavItem; onNavigate: () => void }) {
@@ -115,8 +115,8 @@ export default function Header({ onOpenDemoSandbox }: { onOpenDemoSandbox?: () =
                 onClick={onOpenDemoSandbox}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5 text-primary-600" />
-                Live Demo (500 Records)
+                <ShieldCheck className="w-3.5 h-3.5 text-primary-600" />
+                Launch Live Portal (Unlimited &amp; Safe)
               </button>
               <a
                 href="#pricing"
@@ -183,7 +183,7 @@ export default function Header({ onOpenDemoSandbox }: { onOpenDemoSandbox?: () =
                   }}
                   className="block w-full py-2.5 text-sm font-semibold text-slate-800 bg-slate-100 rounded-xl text-center shadow-xs cursor-pointer"
                 >
-                  ⚡ Live Demo (500 Records)
+                  Launch Live Portal (Unlimited &amp; Safe)
                 </button>
                 <a
                   href="#pricing"
